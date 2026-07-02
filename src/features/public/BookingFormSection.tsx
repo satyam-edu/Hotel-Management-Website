@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { BriefcaseBusiness, Calendar, Users } from "lucide-react";
 import { DUMMY_ROOMS } from "./dummyRooms";
+import { todayIsoDate } from "../../lib/date";
 
 const WHATSAPP_NUMBER = "919956050766";
 const GST_RATE = 0.12;
@@ -24,7 +25,7 @@ interface BookingFormState {
   specialRequests: string;
 }
 
-const todayIso = new Date().toISOString().split("T")[0];
+const todayIso = todayIsoDate();
 
 const INITIAL_STATE: BookingFormState = {
   fullName: "",
