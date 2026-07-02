@@ -1,33 +1,60 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import { BriefcaseBusiness, Calendar, Users } from "lucide-react";
+import { DUMMY_ROOMS } from "./dummyRooms";
 
 const WHATSAPP_NUMBER = "910000000000";
+const GST_RATE = 0.12;
 
-const DUMMY_ROOM_TYPES = ["Deluxe Room", "Executive Suite", "Family Room"] as const;
+const CANCELLATION_POLICY = [
+  "Free cancellation up to 48 hours before check-in",
+  "50% charge for cancellations within 24–48 hours",
+  "No refund for cancellations within 24 hours",
+  "No-show treated as full stay charge",
+];
 
 interface BookingFormState {
   fullName: string;
   mobile: string;
+  email: string;
   checkIn: string;
   checkOut: string;
-  roomType: string;
   adults: number;
   children: number;
+  roomType: string;
+  specialRequests: string;
 }
+
+const todayIso = new Date().toISOString().split("T")[0];
 
 const INITIAL_STATE: BookingFormState = {
   fullName: "",
   mobile: "",
+  email: "",
   checkIn: "",
   checkOut: "",
-  roomType: DUMMY_ROOM_TYPES[0],
-  adults: 1,
+  adults: 2,
   children: 0,
+  roomType: DUMMY_ROOMS[0].name,
+  specialRequests: "",
 };
 
 const inputClasses =
-  "w-full rounded-lg border border-white/15 bg-background-dark/60 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
+  "w-full rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary";
 
-const labelClasses = "mb-1.5 block text-sm font-medium text-white/80";
+const labelClasses = "mb-1.5 block text-xs tracking-wide text-white/50";
+
+function countNights(checkIn: string, checkOut: string): number {
+  if (!checkIn || !checkOut) return 0;
+  const nights = Math.round(
+    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+  return nights > 0 ? nights : 0;
+}
+
+function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
 
 export function BookingFormSection() {
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
@@ -39,17 +66,29 @@ export function BookingFormSection() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  const selectedRoom = useMemo(
+    () => DUMMY_ROOMS.find((room) => room.name === form.roomType) ?? DUMMY_ROOMS[0],
+    [form.roomType],
+  );
+
+  const nights = countNights(form.checkIn, form.checkOut);
+  const subtotal = selectedRoom.nightlyRate * nights;
+  const gstAmount = subtotal * GST_RATE;
+  const totalEstimate = subtotal + gstAmount;
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const message = `Hello, I would like to enquire about a booking.
 Name: ${form.fullName}
 Mobile: ${form.mobile}
+Email: ${form.email}
 Check-in: ${form.checkIn}
 Check-out: ${form.checkOut}
+Guests: ${form.adults} Adults, ${form.children} Children
 Room Type: ${form.roomType}
-Adults: ${form.adults}
-Children: ${form.children}`;
+Special Requests: ${form.specialRequests || "None"}
+Estimated Total: ${formatCurrency(totalEstimate)}`;
 
     const encodedMessage = encodeURIComponent(message);
     window.open(
@@ -59,140 +98,250 @@ Children: ${form.children}`;
   }
 
   return (
-    <section id="booking" className="mx-auto max-w-4xl px-6 py-20 md:py-28">
+    <section id="booking" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
-          Check Availability
+        <p className="text-xs uppercase tracking-[0.3em] text-primary">
+          Reserve Your Stay
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
-          Request a Booking
+          Check Availability
         </h2>
-        <p className="mt-4 text-base leading-relaxed text-white/70">
-          Share your travel details and we&apos;ll confirm availability with
-          you directly over WhatsApp.
-        </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="glass-panel mt-12 grid gap-5 rounded-2xl p-6 sm:grid-cols-2 sm:p-10"
-      >
-        <div>
-          <label htmlFor="fullName" className={labelClasses}>
-            Full Name
-          </label>
-          <input
-            id="fullName"
-            type="text"
-            required
-            value={form.fullName}
-            onChange={(e) => updateField("fullName", e.target.value)}
-            placeholder="Your name"
-            className={inputClasses}
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="mt-12 grid gap-8 lg:grid-cols-[1fr_380px]">
+        <div className="space-y-8">
+          <div className="glass-panel rounded-xl p-6 sm:p-8">
+            <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-white">
+              <BriefcaseBusiness size={20} className="text-primary" />
+              Guest Details
+            </h3>
 
-        <div>
-          <label htmlFor="mobile" className={labelClasses}>
-            Mobile Number
-          </label>
-          <input
-            id="mobile"
-            type="tel"
-            required
-            pattern="[0-9]{10}"
-            value={form.mobile}
-            onChange={(e) => updateField("mobile", e.target.value)}
-            placeholder="10-digit mobile number"
-            className={inputClasses}
-          />
-        </div>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="fullName" className={labelClasses}>
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  required
+                  value={form.fullName}
+                  onChange={(e) => updateField("fullName", e.target.value)}
+                  placeholder="Your full name"
+                  className={inputClasses}
+                />
+              </div>
 
-        <div>
-          <label htmlFor="checkIn" className={labelClasses}>
-            Check-in Date
-          </label>
-          <input
-            id="checkIn"
-            type="date"
-            required
-            min={new Date().toISOString().split("T")[0]}
-            value={form.checkIn}
-            onChange={(e) => updateField("checkIn", e.target.value)}
-            className={inputClasses}
-          />
-        </div>
+              <div>
+                <label htmlFor="mobile" className={labelClasses}>
+                  Phone Number
+                </label>
+                <input
+                  id="mobile"
+                  type="tel"
+                  required
+                  pattern="[0-9]{10}"
+                  value={form.mobile}
+                  onChange={(e) => updateField("mobile", e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className={inputClasses}
+                />
+              </div>
 
-        <div>
-          <label htmlFor="checkOut" className={labelClasses}>
-            Check-out Date
-          </label>
-          <input
-            id="checkOut"
-            type="date"
-            required
-            min={form.checkIn || new Date().toISOString().split("T")[0]}
-            value={form.checkOut}
-            onChange={(e) => updateField("checkOut", e.target.value)}
-            className={inputClasses}
-          />
-        </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="email" className={labelClasses}>
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  placeholder="you@example.com"
+                  className={inputClasses}
+                />
+              </div>
+            </div>
+          </div>
 
-        <div>
-          <label htmlFor="roomType" className={labelClasses}>
-            Room Type
-          </label>
-          <select
-            id="roomType"
-            value={form.roomType}
-            onChange={(e) => updateField("roomType", e.target.value)}
-            className={inputClasses}
+          <div className="glass-panel rounded-xl p-6 sm:p-8">
+            <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-white">
+              <Calendar size={20} className="text-primary" />
+              Booking Details
+            </h3>
+
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="checkIn" className={labelClasses}>
+                  Check-In Date
+                </label>
+                <input
+                  id="checkIn"
+                  type="date"
+                  required
+                  min={todayIso}
+                  value={form.checkIn}
+                  onChange={(e) => updateField("checkIn", e.target.value)}
+                  className={inputClasses}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="checkOut" className={labelClasses}>
+                  Check-Out Date
+                </label>
+                <input
+                  id="checkOut"
+                  type="date"
+                  required
+                  min={form.checkIn || todayIso}
+                  value={form.checkOut}
+                  onChange={(e) => updateField("checkOut", e.target.value)}
+                  className={inputClasses}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="adults" className={`${labelClasses} flex items-center gap-1.5`}>
+                    <Users size={14} />
+                    Adults
+                  </label>
+                  <input
+                    id="adults"
+                    type="number"
+                    min={1}
+                    required
+                    value={form.adults}
+                    onChange={(e) => updateField("adults", Number(e.target.value))}
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="children" className={labelClasses}>
+                    Children
+                  </label>
+                  <input
+                    id="children"
+                    type="number"
+                    min={0}
+                    value={form.children}
+                    onChange={(e) => updateField("children", Number(e.target.value))}
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="roomType" className={labelClasses}>
+                  Room Type
+                </label>
+                <select
+                  id="roomType"
+                  value={form.roomType}
+                  onChange={(e) => updateField("roomType", e.target.value)}
+                  className={inputClasses}
+                >
+                  {DUMMY_ROOMS.map((room) => (
+                    <option key={room.id} value={room.name} className="bg-background-dark">
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="specialRequests" className={labelClasses}>
+                  Special Requests (optional)
+                </label>
+                <textarea
+                  id="specialRequests"
+                  rows={3}
+                  value={form.specialRequests}
+                  onChange={(e) => updateField("specialRequests", e.target.value)}
+                  placeholder="e.g., early check-in, extra bed, anniversary decoration..."
+                  className={`${inputClasses} resize-none`}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full rounded-sm bg-primary py-4 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90"
           >
-            {DUMMY_ROOM_TYPES.map((room) => (
-              <option key={room} value={room} className="bg-background-dark">
-                {room}
-              </option>
-            ))}
-          </select>
+            Submit Booking Enquiry
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="adults" className={labelClasses}>
-              Adults
-            </label>
-            <input
-              id="adults"
-              type="number"
-              min={1}
-              required
-              value={form.adults}
-              onChange={(e) => updateField("adults", Number(e.target.value))}
-              className={inputClasses}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="children" className={labelClasses}>
-              Children
-            </label>
-            <input
-              id="children"
-              type="number"
-              min={0}
-              value={form.children}
-              onChange={(e) => updateField("children", Number(e.target.value))}
-              className={inputClasses}
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="mt-2 flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-background-dark transition-transform hover:scale-[1.01] sm:col-span-2"
+        <aside
+          className="h-fit rounded-xl p-6 sm:sticky sm:top-24 sm:p-8"
+          style={{
+            background: "rgba(var(--color-primary-rgb), 0.08)",
+            border: "1px solid rgba(var(--color-primary-rgb), 0.25)",
+          }}
         >
-          Send Enquiry on WhatsApp
-        </button>
+          <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-white">
+            <span aria-hidden="true" className="text-primary">
+              &#9635;
+            </span>
+            Cost Estimator
+          </h3>
+
+          <dl className="mt-6 space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-white/60">Room</dt>
+              <dd className="font-medium text-white">{selectedRoom.name}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-white/60">Rate / night</dt>
+              <dd className="font-medium text-primary">
+                {formatCurrency(selectedRoom.nightlyRate)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-white/60">Nights</dt>
+              <dd className="font-medium text-white">{nights}</dd>
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between">
+                <dt className="text-white/60">Subtotal</dt>
+                <dd className="font-medium text-white">{formatCurrency(subtotal)}</dd>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <dt className="text-white/60">GST (12%)</dt>
+                <dd className="font-medium text-white">{formatCurrency(gstAmount)}</dd>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-white/10 pt-3">
+              <dt className="text-base font-semibold text-white">Total Estimate</dt>
+              <dd className="font-display text-xl font-semibold text-primary">
+                {formatCurrency(totalEstimate)}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="mt-4 text-xs leading-relaxed text-white/40">
+            * This is an estimate. Final pricing confirmed upon booking. GST
+            &amp; charges may vary.
+          </p>
+
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <p className="text-xs uppercase tracking-wider text-white/40">
+              Cancellation Policy
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {CANCELLATION_POLICY.map((rule) => (
+                <li key={rule} className="text-xs leading-relaxed text-white/60">
+                  &bull; {rule}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
       </form>
     </section>
   );

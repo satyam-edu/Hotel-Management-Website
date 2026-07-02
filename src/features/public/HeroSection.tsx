@@ -34,13 +34,13 @@ export function HeroSection() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
             href="#rooms"
-            className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-background-dark transition-transform hover:scale-105"
+            className="rounded-sm bg-primary px-10 py-4 text-xs uppercase tracking-widest text-background-dark transition-opacity duration-300 hover:opacity-90"
           >
             Book Your Stay
           </a>
           <a
             href="#rooms"
-            className="glass-panel rounded-full px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            className="rounded-sm border border-white/20 px-10 py-4 text-xs uppercase tracking-widest text-white transition-colors duration-300 hover:bg-white/10"
           >
             Explore Rooms
           </a>

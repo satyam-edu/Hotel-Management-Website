@@ -1,43 +1,11 @@
 import { Check } from "lucide-react";
-import heroFallback from "../../assets/hero.png";
-
-interface DummyRoom {
-  id: string;
-  name: string;
-  nightlyRate: number;
-  coverPhotoUrl: string;
-  amenities: string[];
-}
-
-const DUMMY_ROOMS: DummyRoom[] = [
-  {
-    id: "deluxe-room",
-    name: "Deluxe Room",
-    nightlyRate: 2499,
-    coverPhotoUrl: heroFallback,
-    amenities: ["King bed", "Free Wi-Fi", "Air conditioning", "Room service"],
-  },
-  {
-    id: "executive-suite",
-    name: "Executive Suite",
-    nightlyRate: 4299,
-    coverPhotoUrl: heroFallback,
-    amenities: ["Living area", "City view", "Mini bar", "Complimentary breakfast"],
-  },
-  {
-    id: "family-room",
-    name: "Family Room",
-    nightlyRate: 3599,
-    coverPhotoUrl: heroFallback,
-    amenities: ["Two queen beds", "Extra bedding", "Free Wi-Fi", "Air conditioning"],
-  },
-];
+import { DUMMY_ROOMS } from "./dummyRooms";
 
 export function RoomsSection() {
   return (
     <section id="rooms" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
+        <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Rooms &amp; Suites
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
@@ -53,7 +21,7 @@ export function RoomsSection() {
         {DUMMY_ROOMS.map((room) => (
           <div
             key={room.id}
-            className="glass-panel flex flex-col overflow-hidden rounded-2xl"
+            className="glass-panel flex flex-col overflow-hidden rounded-xl"
           >
             <div className="relative h-52 w-full overflow-hidden">
               <img
@@ -62,7 +30,7 @@ export function RoomsSection() {
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
-              <div className="absolute right-4 top-4 rounded-full bg-primary px-3 py-1 text-sm font-semibold text-background-dark">
+              <div className="absolute right-4 top-4 rounded-sm bg-primary px-3 py-1 text-sm font-semibold text-background-dark">
                 ₹{room.nightlyRate.toLocaleString("en-IN")} / night
               </div>
             </div>
@@ -86,7 +54,7 @@ export function RoomsSection() {
 
               <a
                 href="#booking"
-                className="mt-6 rounded-full bg-primary py-2.5 text-center text-sm font-semibold text-background-dark transition-transform hover:scale-[1.02]"
+                className="mt-6 rounded-sm bg-primary py-2.5 text-center text-xs font-semibold uppercase tracking-widest text-background-dark transition-opacity duration-300 hover:opacity-90"
               >
                 Book Now
               </a>

@@ -15,6 +15,11 @@ export default {
           dark: "var(--color-background-dark)",
         },
       },
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+        serif: ["var(--font-serif)"],
+        display: ["var(--font-serif)"],
+      },
       fontSize: {
         base: "var(--font-size-base)",
       },

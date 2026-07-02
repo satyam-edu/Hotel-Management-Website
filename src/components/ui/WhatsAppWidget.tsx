@@ -9,9 +9,12 @@ export function WhatsAppWidget() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/30 transition-transform hover:scale-105"
+      className="group fixed bottom-6 right-6 z-40 flex h-14 items-center overflow-hidden rounded-full bg-[#25D366] px-[15px] text-white shadow-lg shadow-black/30 transition-all duration-300"
     >
-      <MessageCircle size={28} fill="currentColor" className="text-white" />
+      <MessageCircle size={28} fill="currentColor" className="shrink-0" />
+      <span className="hidden max-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold opacity-0 transition-all duration-300 group-hover:ml-2.5 group-hover:max-w-32 group-hover:opacity-100 sm:block">
+        Chat with us
+      </span>
     </a>
   );
 }

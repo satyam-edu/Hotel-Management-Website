@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import logo from "../../assets/logo.png";
 
 interface NavLink {
   label: string;
@@ -55,19 +56,26 @@ export function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)]">
       <nav className="glass-panel mx-auto flex h-full max-w-7xl items-center justify-between rounded-none border-x-0 border-t-0 px-6">
-        <a href="#home" className="font-display text-xl font-semibold text-primary">
-          Kamala Inn Grand
+        <a href="#home" className="flex items-center gap-2.5">
+          <img
+            src={logo}
+            alt=""
+            className="h-11 w-11 shrink-0 object-contain"
+          />
+          <span className="font-display text-xl font-semibold text-primary">
+            Kamala Inn Grand
+          </span>
         </a>
 
-        <ul className="hidden items-center gap-8 md:flex">
+        <ul className="hidden items-center gap-7 md:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <a
                 href={link.href}
-                className={`text-sm font-medium transition-colors ${
+                className={`text-xs font-semibold uppercase tracking-widest transition-colors duration-300 ${
                   activeHref === link.href
                     ? "text-primary"
-                    : "text-white/80 hover:text-white"
+                    : "text-white/70 hover:text-white"
                 }`}
               >
                 {link.label}
@@ -78,7 +86,7 @@ export function Navbar() {
 
         <Link
           to="/admin"
-          className="hidden rounded-full bg-primary px-5 py-2 text-sm font-semibold text-background-dark transition-transform hover:scale-105 md:inline-block"
+          className="hidden rounded-sm border border-white/15 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/50 transition-colors duration-300 hover:bg-white/5 hover:text-white/80 md:inline-block"
         >
           Staff
         </Link>
@@ -101,7 +109,7 @@ export function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setIsMenuOpen(false)}
-              className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
                 activeHref === link.href
                   ? "bg-primary/15 text-primary"
                   : "text-white/80 hover:bg-white/5 hover:text-white"
@@ -113,7 +121,7 @@ export function Navbar() {
           <Link
             to="/admin"
             onClick={() => setIsMenuOpen(false)}
-            className="mt-1 rounded-lg bg-primary px-3 py-2.5 text-center text-sm font-semibold text-background-dark"
+            className="mt-1 rounded-sm border border-white/10 px-3 py-2.5 text-center text-xs uppercase tracking-[0.2em] text-white/40"
           >
             Staff
           </Link>

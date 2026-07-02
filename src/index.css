@@ -1,23 +1,24 @@
 @import "tailwindcss";
+@source not "../Website design creation_refrence";
 
 :root {
-  --color-primary: #c9a227;
-  --color-primary-light: #d9b74f;
-  --color-primary-dark: #a3811c;
-  --color-primary-rgb: 201, 162, 39;
+  --color-primary: #c9a84c;
+  --color-primary-light: #d9bd6f;
+  --color-primary-dark: #a6883a;
+  --color-primary-rgb: 201, 168, 76;
 
-  --color-background: #0b1220;
-  --color-background-light: #16223a;
-  --color-background-dark: #05080f;
-  --color-background-rgb: 11, 18, 32;
+  --color-background: #0f1e3c;
+  --color-background-light: #17325e;
+  --color-background-dark: #091628;
+  --color-background-rgb: 15, 30, 60;
 
   --font-size-base: 16px;
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Playfair Display", Georgia, serif;
 
-  --glass-bg-alpha: 0.14;
-  --glass-border-alpha: 0.22;
-  --glass-blur: 16px;
+  --glass-bg-alpha: 0.04;
+  --glass-border-alpha: 0.08;
+  --glass-blur: 20px;
 
   --header-height: 4.5rem;
 }
@@ -58,21 +59,21 @@ h3,
 }
 
 .glass-panel {
-  background-color: rgba(var(--color-background-rgb), var(--glass-bg-alpha));
+  background-color: rgba(255, 255, 255, var(--glass-bg-alpha));
   border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
-  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
 }
 
 .glass-panel-light {
   background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
 }
 
 .sync-loading {

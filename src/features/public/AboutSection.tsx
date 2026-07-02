@@ -9,7 +9,7 @@ export function AboutSection() {
     <section id="about" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
       <div className="grid gap-12 md:grid-cols-2 md:items-center md:gap-16">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
+          <p className="text-xs uppercase tracking-[0.3em] text-primary">
             About Us
           </p>
           <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
@@ -34,7 +34,7 @@ export function AboutSection() {
           </p>
         </div>
 
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl md:aspect-square">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl md:aspect-square">
           <img
             src={aboutPhoto}
             alt="Hotel Kamala Inn Grand property"

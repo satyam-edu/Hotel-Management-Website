@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { Mail, MapPin, Navigation, Phone } from "lucide-react";
 
 const MAPS_URL = "https://maps.app.goo.gl/9e76F5ZfYazrUmAk7";
@@ -65,14 +64,8 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-5 text-xs text-white/40 md:flex-row">
+        <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-5 text-xs text-white/40">
           <p>&copy; {new Date().getFullYear()} Hotel Kamala Inn Grand. All rights reserved.</p>
-          <Link
-            to="/admin"
-            className="text-white/25 transition-colors hover:text-white/60"
-          >
-            Staff Login
-          </Link>
         </div>
       </div>
     </footer>

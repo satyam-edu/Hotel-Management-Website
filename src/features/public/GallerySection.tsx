@@ -28,7 +28,7 @@ export function GallerySection() {
   return (
     <section id="gallery" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
+        <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Gallery
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
@@ -42,10 +42,10 @@ export function GallerySection() {
             key={category}
             type="button"
             onClick={() => setActiveCategory(category)}
-            className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-5 py-2 text-xs uppercase tracking-widest transition-colors duration-300 ${
               activeCategory === category
                 ? "bg-primary text-background-dark"
-                : "glass-panel text-white/75 hover:text-white"
+                : "glass-panel text-white/60 hover:text-white"
             }`}
           >
             {category}
