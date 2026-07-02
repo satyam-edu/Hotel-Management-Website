@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   BedDouble,
   Calendar,
@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { PHYSICAL_ROOMS } from "../../data/inventory";
 import { supabase } from "../../lib/supabase";
+import { todayIsoDate } from "../../lib/date";
+import type { Reservation } from "../../types/database";
 
 interface BookingFormState {
   guestName: string;
@@ -35,29 +37,59 @@ const inputClasses =
 
 const labelClasses = "mb-1.5 flex items-center gap-1.5 text-xs tracking-wide text-white/50";
 
-interface DailyGuest {
-  id: string;
-  guestName: string;
-  roomNumber: string;
-  nights?: number;
-}
-
-const ARRIVALS_TODAY: DailyGuest[] = [
-  { id: "arr-1", guestName: "Rohit Malhotra", roomNumber: "203" },
-  { id: "arr-2", guestName: "Sunita Devi", roomNumber: "210" },
-  { id: "arr-3", guestName: "Amit & Family", roomNumber: "301" },
-];
-
-const DEPARTURES_TODAY: DailyGuest[] = [
-  { id: "dep-1", guestName: "Vikram Yadav", roomNumber: "205" },
-  { id: "dep-2", guestName: "Neha Tripathi", roomNumber: "208" },
-];
-
 export function FrontDesk() {
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const [arrivals, setArrivals] = useState<Reservation[]>([]);
+  const [departures, setDepartures] = useState<Reservation[]>([]);
+  const [isLoadingPanels, setIsLoadingPanels] = useState(true);
+  const [panelsError, setPanelsError] = useState<string | null>(null);
+
+  async function loadDailyPanels() {
+    if (!supabase) {
+      setPanelsError("Database connection is not configured.");
+      setIsLoadingPanels(false);
+      return;
+    }
+
+    const today = todayIsoDate();
+    setIsLoadingPanels(true);
+    setPanelsError(null);
+
+    const [arrivalsResult, departuresResult] = await Promise.all([
+      supabase
+        .from("reservations")
+        .select("*")
+        .eq("check_in_date", today)
+        .eq("status", "Confirmed"),
+      supabase
+        .from("reservations")
+        .select("*")
+        .eq("check_out_date", today)
+        .eq("status", "Checked-In"),
+    ]);
+
+    if (arrivalsResult.error || departuresResult.error) {
+      console.error(
+        "Failed to load daily panels:",
+        arrivalsResult.error?.message ?? departuresResult.error?.message,
+      );
+      setPanelsError("Could not load today's arrivals and departures.");
+      setIsLoadingPanels(false);
+      return;
+    }
+
+    setArrivals(arrivalsResult.data ?? []);
+    setDepartures(departuresResult.data ?? []);
+    setIsLoadingPanels(false);
+  }
+
+  useEffect(() => {
+    loadDailyPanels();
+  }, []);
 
   function updateField<K extends keyof BookingFormState>(
     field: K,
@@ -98,6 +130,7 @@ export function FrontDesk() {
 
     setForm(INITIAL_STATE);
     setSubmitSuccess(true);
+    await loadDailyPanels();
   }
 
   return (
@@ -256,21 +289,40 @@ export function FrontDesk() {
               <LogIn size={16} className="text-emerald-400" />
               Arrivals Today
             </h3>
-            <ul className="mt-4 space-y-3">
-              {ARRIVALS_TODAY.map((guest) => (
-                <li
-                  key={guest.id}
-                  className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0"
-                >
-                  <span className="text-sm text-white/80">
-                    {guest.guestName}
-                  </span>
-                  <span className="text-xs text-white/40">
-                    Room {guest.roomNumber}
-                  </span>
-                </li>
-              ))}
-            </ul>
+
+            {isLoadingPanels && (
+              <p className="mt-4 text-sm text-white/40">Loading…</p>
+            )}
+
+            {!isLoadingPanels && panelsError && (
+              <p className="mt-4 text-sm text-red-400" role="alert">
+                {panelsError}
+              </p>
+            )}
+
+            {!isLoadingPanels && !panelsError && arrivals.length === 0 && (
+              <p className="mt-4 text-sm text-white/40">
+                No arrivals remaining today.
+              </p>
+            )}
+
+            {!isLoadingPanels && !panelsError && arrivals.length > 0 && (
+              <ul className="mt-4 space-y-3">
+                {arrivals.map((reservation) => (
+                  <li
+                    key={reservation.id}
+                    className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0"
+                  >
+                    <span className="text-sm text-white/80">
+                      {reservation.guest_name ?? "—"}
+                    </span>
+                    <span className="text-xs text-white/40">
+                      Room {reservation.room_number ?? "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="glass-panel rounded-xl p-6">
@@ -278,21 +330,40 @@ export function FrontDesk() {
               <LogOut size={16} className="text-amber-400" />
               Departures Today
             </h3>
-            <ul className="mt-4 space-y-3">
-              {DEPARTURES_TODAY.map((guest) => (
-                <li
-                  key={guest.id}
-                  className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0"
-                >
-                  <span className="text-sm text-white/80">
-                    {guest.guestName}
-                  </span>
-                  <span className="text-xs text-white/40">
-                    Room {guest.roomNumber}
-                  </span>
-                </li>
-              ))}
-            </ul>
+
+            {isLoadingPanels && (
+              <p className="mt-4 text-sm text-white/40">Loading…</p>
+            )}
+
+            {!isLoadingPanels && panelsError && (
+              <p className="mt-4 text-sm text-red-400" role="alert">
+                {panelsError}
+              </p>
+            )}
+
+            {!isLoadingPanels && !panelsError && departures.length === 0 && (
+              <p className="mt-4 text-sm text-white/40">
+                No departures remaining today.
+              </p>
+            )}
+
+            {!isLoadingPanels && !panelsError && departures.length > 0 && (
+              <ul className="mt-4 space-y-3">
+                {departures.map((reservation) => (
+                  <li
+                    key={reservation.id}
+                    className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0"
+                  >
+                    <span className="text-sm text-white/80">
+                      {reservation.guest_name ?? "—"}
+                    </span>
+                    <span className="text-xs text-white/40">
+                      Room {reservation.room_number ?? "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
