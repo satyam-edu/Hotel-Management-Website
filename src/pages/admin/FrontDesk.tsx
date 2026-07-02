@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import {
   BedDouble,
   Calendar,
+  CheckCircle2,
   IndianRupee,
   LogIn,
   LogOut,
@@ -9,6 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { PHYSICAL_ROOMS } from "../../data/inventory";
+import { supabase } from "../../lib/supabase";
 
 interface BookingFormState {
   guestName: string;
@@ -53,6 +55,9 @@ const DEPARTURES_TODAY: DailyGuest[] = [
 
 export function FrontDesk() {
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   function updateField<K extends keyof BookingFormState>(
     field: K,
@@ -61,9 +66,38 @@ export function FrontDesk() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!supabase) {
+      setSubmitError("Database connection is not configured.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    const { error } = await supabase.from("reservations").insert({
+      guest_name: form.guestName,
+      guest_phone: form.phone,
+      room_number: form.roomNumber,
+      check_in_date: form.checkIn,
+      check_out_date: form.checkOut,
+      total_amount: Number(form.totalAmount),
+      status: "Confirmed",
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      console.error("Failed to create reservation:", error.message);
+      setSubmitError("Could not save this booking. Please try again.");
+      return;
+    }
+
     setForm(INITIAL_STATE);
+    setSubmitSuccess(true);
   }
 
   return (
@@ -192,12 +226,28 @@ export function FrontDesk() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="mt-7 w-full rounded-sm bg-primary py-3 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 sm:w-auto sm:px-10"
-          >
-            Confirm Booking
-          </button>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-sm bg-primary py-3 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-10"
+            >
+              {isSubmitting ? "Saving…" : "Confirm Booking"}
+            </button>
+
+            {submitSuccess && (
+              <p className="flex items-center gap-1.5 text-sm text-emerald-400">
+                <CheckCircle2 size={16} />
+                Booking saved to the ledger.
+              </p>
+            )}
+
+            {submitError && (
+              <p className="text-sm text-red-400" role="alert">
+                {submitError}
+              </p>
+            )}
+          </div>
         </form>
 
         <div className="space-y-6">

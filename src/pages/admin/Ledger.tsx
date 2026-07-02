@@ -1,74 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, Search, User } from "lucide-react";
-
-type ReservationStatus = "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled";
-
-interface DummyReservation {
-  id: string;
-  guestName: string;
-  roomNumber: string;
-  checkIn: string;
-  checkOut: string;
-  amount: number;
-  status: ReservationStatus;
-}
-
-const DUMMY_RESERVATIONS: DummyReservation[] = [
-  {
-    id: "KIG-1042",
-    guestName: "Rohit Malhotra",
-    roomNumber: "203",
-    checkIn: "2026-07-03",
-    checkOut: "2026-07-05",
-    amount: 5598,
-    status: "Confirmed",
-  },
-  {
-    id: "KIG-1041",
-    guestName: "Sunita Devi",
-    roomNumber: "210",
-    checkIn: "2026-07-03",
-    checkOut: "2026-07-04",
-    amount: 2799,
-    status: "Checked-In",
-  },
-  {
-    id: "KIG-1039",
-    guestName: "Amit Kapoor",
-    roomNumber: "301",
-    checkIn: "2026-07-01",
-    checkOut: "2026-07-03",
-    amount: 12998,
-    status: "Checked-Out",
-  },
-  {
-    id: "KIG-1037",
-    guestName: "Vikram Yadav",
-    roomNumber: "205",
-    checkIn: "2026-06-30",
-    checkOut: "2026-07-03",
-    amount: 8397,
-    status: "Checked-Out",
-  },
-  {
-    id: "KIG-1035",
-    guestName: "Neha Tripathi",
-    roomNumber: "208",
-    checkIn: "2026-06-29",
-    checkOut: "2026-07-01",
-    amount: 5598,
-    status: "Cancelled",
-  },
-  {
-    id: "KIG-1033",
-    guestName: "Farhan Sheikh",
-    roomNumber: "216",
-    checkIn: "2026-07-05",
-    checkOut: "2026-07-08",
-    amount: 10797,
-    status: "Confirmed",
-  },
-];
+import { supabase } from "../../lib/supabase";
+import type { Reservation, ReservationStatus } from "../../types/database";
 
 const STATUS_FILTERS: Array<"All" | ReservationStatus> = [
   "All",
@@ -98,23 +31,68 @@ function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString("en-IN")}`;
 }
 
+function formatBookingId(id: string): string {
+  return `KIG-${id.slice(0, 8).toUpperCase()}`;
+}
+
 export function Ledger() {
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ReservationStatus>(
     "All",
   );
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadReservations() {
+      if (!supabase) {
+        setLoadError("Database connection is not configured.");
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error("Failed to load reservations:", error.message);
+        setLoadError("Could not load the ledger. Please refresh the page.");
+        setIsLoading(false);
+        return;
+      }
+
+      setReservations(data ?? []);
+      setIsLoading(false);
+    }
+
+    loadReservations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filteredReservations = useMemo(() => {
-    return DUMMY_RESERVATIONS.filter((reservation) => {
+    return reservations.filter((reservation) => {
       const matchesStatus =
         statusFilter === "All" || reservation.status === statusFilter;
+
+      const term = searchTerm.trim().toLowerCase();
       const matchesSearch =
-        searchTerm.trim() === "" ||
-        reservation.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reservation.id.toLowerCase().includes(searchTerm.toLowerCase());
+        term === "" ||
+        (reservation.guest_name?.toLowerCase().includes(term) ?? false) ||
+        reservation.id.toLowerCase().includes(term);
+
       return matchesStatus && matchesSearch;
     });
-  }, [searchTerm, statusFilter]);
+  }, [reservations, searchTerm, statusFilter]);
 
   return (
     <div className="space-y-6">
@@ -170,43 +148,73 @@ export function Ledger() {
             </tr>
           </thead>
           <tbody>
-            {filteredReservations.map((reservation) => (
-              <tr
-                key={reservation.id}
-                className="border-b border-white/5 last:border-0"
-              >
-                <td className="px-6 py-4 font-mono text-xs text-white/70">
-                  {reservation.id}
-                </td>
-                <td className="px-6 py-4">
-                  <span className="flex items-center gap-2 text-white/90">
-                    <User size={14} className="shrink-0 text-primary" />
-                    {reservation.guestName}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-white/70">
-                  Room {reservation.roomNumber}
-                </td>
-                <td className="px-6 py-4">
-                  <span className="flex items-center gap-2 text-white/70">
-                    <Calendar size={14} className="shrink-0 text-white/40" />
-                    {formatDateRange(reservation.checkIn, reservation.checkOut)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 font-medium text-white">
-                  {formatCurrency(reservation.amount)}
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE_STYLES[reservation.status]}`}
-                  >
-                    {reservation.status}
-                  </span>
+            {isLoading && (
+              <tr>
+                <td colSpan={6} className="px-6 py-10">
+                  <div className="flex items-center justify-center gap-3 text-sm text-white/40">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/15 border-t-primary" />
+                    Loading reservations…
+                  </div>
                 </td>
               </tr>
-            ))}
+            )}
 
-            {filteredReservations.length === 0 && (
+            {!isLoading && loadError && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-6 py-10 text-center text-sm text-red-400"
+                  role="alert"
+                >
+                  {loadError}
+                </td>
+              </tr>
+            )}
+
+            {!isLoading &&
+              !loadError &&
+              filteredReservations.map((reservation) => (
+                <tr
+                  key={reservation.id}
+                  className="border-b border-white/5 last:border-0"
+                >
+                  <td className="px-6 py-4 font-mono text-xs text-white/70">
+                    {formatBookingId(reservation.id)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="flex items-center gap-2 text-white/90">
+                      <User size={14} className="shrink-0 text-primary" />
+                      {reservation.guest_name ?? "—"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-white/70">
+                    {reservation.room_number
+                      ? `Room ${reservation.room_number}`
+                      : "—"}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="flex items-center gap-2 text-white/70">
+                      <Calendar size={14} className="shrink-0 text-white/40" />
+                      {formatDateRange(
+                        reservation.check_in_date,
+                        reservation.check_out_date,
+                      )}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-white">
+                    {formatCurrency(reservation.total_amount)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE_STYLES[reservation.status]}`}
+                    >
+                      {reservation.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+
+            {!isLoading && !loadError && filteredReservations.length === 0 && (
               <tr>
                 <td
                   colSpan={6}

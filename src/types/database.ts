@@ -4,7 +4,13 @@ export type EnquiryStatus = "pending" | "confirmed" | "rejected";
 
 export type PaymentStatus = "unpaid" | "partial" | "paid";
 
-export interface SystemConfiguration {
+export type ReservationStatus =
+  | "Confirmed"
+  | "Checked-In"
+  | "Checked-Out"
+  | "Cancelled";
+
+export type SystemConfiguration = {
   id: number;
   primary_gold: string;
   bg_charcoal: string;
@@ -18,9 +24,9 @@ export interface SystemConfiguration {
   check_out_time: string;
   cancellation_policy: string;
   updated_at: string;
-}
+};
 
-export interface RoomCategory {
+export type RoomCategory = {
   id: string;
   name: string;
   nightly_rate: number;
@@ -30,17 +36,17 @@ export interface RoomCategory {
   is_unavailable: boolean;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface PhysicalRoom {
+export type PhysicalRoom = {
   id: string;
   room_number: string;
   floor: number;
   category_id: string;
   created_at: string;
-}
+};
 
-export interface Enquiry {
+export type Enquiry = {
   id: string;
   reference_code: string;
   full_name: string;
@@ -53,44 +59,49 @@ export interface Enquiry {
   room_type_id: string | null;
   status: EnquiryStatus;
   created_at: string;
-}
+};
 
-export interface Reservation {
+export type Reservation = {
   id: string;
   enquiry_id: string | null;
-  assigned_room_id: string;
+  assigned_room_id: string | null;
+  guest_name: string | null;
+  guest_phone: string | null;
+  room_number: string | null;
   check_in_date: string;
   check_out_date: string;
   total_amount: number;
   tax_amount: number;
   payment_status: PaymentStatus;
+  status: ReservationStatus;
   is_cancelled: boolean;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface AuditLog {
+export type AuditLog = {
   id: string;
   admin_id: string;
   action_taken: string;
   description: string;
   created_at: string;
-}
+};
 
-export interface StaffRole {
+export type StaffRole = {
   id: string;
   username: string;
   role: StaffRoleType;
   created_at: string;
-}
+};
 
-interface TableDefinition<Row, Insert, Update> {
+type TableDefinition<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;
   Update: Update;
-}
+  Relationships: [];
+};
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       system_configurations: TableDefinition<
@@ -122,10 +133,22 @@ export interface Database {
         Reservation,
         Omit<
           Reservation,
-          "id" | "payment_status" | "is_cancelled" | "created_at" | "updated_at"
+          | "id"
+          | "enquiry_id"
+          | "assigned_room_id"
+          | "tax_amount"
+          | "payment_status"
+          | "status"
+          | "is_cancelled"
+          | "created_at"
+          | "updated_at"
         > & {
           id?: string;
+          enquiry_id?: string | null;
+          assigned_room_id?: string | null;
+          tax_amount?: number;
           payment_status?: PaymentStatus;
+          status?: ReservationStatus;
           is_cancelled?: boolean;
         },
         Partial<Omit<Reservation, "id" | "created_at">>
@@ -133,7 +156,7 @@ export interface Database {
       audit_logs: TableDefinition<
         AuditLog,
         Omit<AuditLog, "id" | "created_at"> & { id?: string },
-        never
+        Record<string, never>
       >;
       staff_roles: TableDefinition<
         StaffRole,
@@ -141,10 +164,12 @@ export interface Database {
         Partial<Omit<StaffRole, "id" | "created_at">>
       >;
     };
+    Views: Record<string, never>;
     Enums: {
       staff_role_type: StaffRoleType;
       enquiry_status: EnquiryStatus;
       payment_status_type: PaymentStatus;
+      reservation_status: ReservationStatus;
     };
     Functions: {
       is_staff: {
@@ -157,4 +182,4 @@ export interface Database {
       };
     };
   };
-}
+};
