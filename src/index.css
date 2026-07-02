@@ -12,10 +12,14 @@
   --color-background-rgb: 11, 18, 32;
 
   --font-size-base: 16px;
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
 
   --glass-bg-alpha: 0.14;
   --glass-border-alpha: 0.22;
   --glass-blur: 16px;
+
+  --header-height: 4.5rem;
 }
 
 @theme inline {
@@ -26,20 +30,31 @@
   --color-background-light: var(--color-background-light);
   --color-background-dark: var(--color-background-dark);
   --font-size-base: var(--font-size-base);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
 }
 
 html {
   font-size: var(--font-size-base);
   color-scheme: dark;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--header-height);
 }
 
 body {
   margin: 0;
   background-color: var(--color-background);
   color: #f5f2ea;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-serif);
 }
 
 .glass-panel {

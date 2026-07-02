@@ -1,13 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables.",
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    "VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set — running with local defaults, no live data.",
   );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey)
+  : null;

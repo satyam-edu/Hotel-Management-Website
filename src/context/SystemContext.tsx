@@ -10,10 +10,26 @@ import { hexToRgbString, shadeColor } from "../lib/color";
 import type { SystemConfiguration } from "../types/database";
 
 interface SystemContextValue {
-  config: SystemConfiguration | null;
+  config: SystemConfiguration;
   isLoading: boolean;
   error: string | null;
 }
+
+const DEFAULT_CONFIG: SystemConfiguration = {
+  id: 1,
+  primary_gold: "#c5a880",
+  bg_charcoal: "#0b132b",
+  base_font_size: 16,
+  hero_bg_url: null,
+  about_photo_url: null,
+  min_booking_age: 12,
+  max_adults_per_room: 2,
+  max_children_per_room: 2,
+  check_in_time: "13:00",
+  check_out_time: "11:00",
+  cancellation_policy: "",
+  updated_at: new Date().toISOString(),
+};
 
 const SystemContext = createContext<SystemContextValue | undefined>(
   undefined,
@@ -50,14 +66,11 @@ function applyThemeVariables(config: SystemConfiguration): void {
     hexToRgbString(config.bg_charcoal),
   );
 
-  root.style.setProperty(
-    "--font-size-base",
-    `${config.base_font_size}px`,
-  );
+  root.style.setProperty("--font-size-base", `${config.base_font_size}px`);
 }
 
 export function SystemProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<SystemConfiguration | null>(null);
+  const [config, setConfig] = useState<SystemConfiguration>(DEFAULT_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +78,12 @@ export function SystemProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     async function loadConfig() {
+      if (!supabase) {
+        applyThemeVariables(DEFAULT_CONFIG);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error: fetchError } = await supabase
         .from("system_configurations")
         .select("*")
@@ -74,6 +93,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
       if (!isMounted) return;
 
       if (fetchError || !data) {
+        applyThemeVariables(DEFAULT_CONFIG);
         setError(fetchError?.message ?? "Failed to load site configuration.");
         setIsLoading(false);
         return;
