@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabase";
 import logo from "../../assets/logo.png";
+
+const BOOTSTRAP_EMAIL = "admin@test.com";
+const BOOTSTRAP_PASSWORD = "KamalaAdmin2026!";
 
 const inputClasses =
   "w-full rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary";
@@ -9,12 +14,56 @@ const labelClasses = "mb-1.5 block text-xs tracking-wide text-white/50";
 
 export function AdminLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const redirectTo =
+    (location.state as { from?: string } | null)?.from ?? "/admin/dashboard";
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    navigate("/admin/dashboard");
+    setError(null);
+    setIsSubmitting(true);
+
+    const { error: loginError } = await login(email, password);
+
+    setIsSubmitting(false);
+
+    if (loginError) {
+      setError("Invalid credentials. Please check your email and password.");
+      return;
+    }
+
+    navigate(redirectTo, { replace: true });
+  }
+
+  async function handleBootstrapSignUp() {
+    if (!supabase) {
+      setBootstrapMessage("Authentication service is not configured.");
+      return;
+    }
+
+    setIsBootstrapping(true);
+    setBootstrapMessage(null);
+
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: BOOTSTRAP_EMAIL,
+      password: BOOTSTRAP_PASSWORD,
+    });
+
+    setIsBootstrapping(false);
+    setBootstrapMessage(
+      signUpError
+        ? `Sign-up failed: ${signUpError.message}`
+        : `Auth user created for ${BOOTSTRAP_EMAIL}. Now assign a role to this user in the Supabase SQL editor (staff_roles table).`,
+    );
   }
 
   return (
@@ -66,11 +115,18 @@ export function AdminLogin() {
             </div>
           </div>
 
+          {error && (
+            <p className="mt-4 text-sm text-red-400" role="alert">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="mt-7 w-full rounded-sm bg-primary py-3 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90"
+            disabled={isSubmitting}
+            className="mt-7 w-full rounded-sm bg-primary py-3 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Authenticate
+            {isSubmitting ? "Authenticating…" : "Authenticate"}
           </button>
         </form>
 
@@ -80,6 +136,31 @@ export function AdminLogin() {
         >
           Back to Homepage
         </a>
+
+        {import.meta.env.DEV && (
+          <div className="mt-10 rounded-sm border border-dashed border-white/15 p-4">
+            <p className="text-xs uppercase tracking-widest text-white/40">
+              Dev Only — Bootstrap
+            </p>
+            <p className="mt-1.5 text-xs text-white/50">
+              Creates the auth user {BOOTSTRAP_EMAIL}. Role must still be
+              assigned manually in the Supabase SQL editor.
+            </p>
+            <button
+              type="button"
+              onClick={handleBootstrapSignUp}
+              disabled={isBootstrapping}
+              className="mt-3 w-full rounded-sm border border-white/15 py-2 text-xs uppercase tracking-widest text-white/70 transition-colors duration-300 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isBootstrapping ? "Creating…" : "Create Bootstrap Admin User"}
+            </button>
+            {bootstrapMessage && (
+              <p className="mt-3 text-xs leading-relaxed text-white/60">
+                {bootstrapMessage}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

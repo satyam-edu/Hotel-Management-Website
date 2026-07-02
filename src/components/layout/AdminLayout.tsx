@@ -8,11 +8,14 @@ import {
   Settings,
 } from "lucide-react";
 import logo from "../../assets/logo.png";
+import { formatRoleLabel, useAuth } from "../../context/AuthContext";
+import type { StaffRoleType } from "../../types/database";
 
 interface AdminNavLink {
   label: string;
   to: string;
   icon: typeof LayoutDashboard;
+  restrictedTo?: StaffRoleType[];
 }
 
 const ADMIN_NAV_LINKS: AdminNavLink[] = [
@@ -20,16 +23,25 @@ const ADMIN_NAV_LINKS: AdminNavLink[] = [
   { label: "Front Desk", to: "/admin/front-desk", icon: Inbox },
   { label: "Live Room Map", to: "/admin/room-map", icon: Grid3x3 },
   { label: "Master Ledger", to: "/admin/ledger", icon: BookOpen },
-  { label: "Settings & Audit", to: "/admin/settings", icon: Settings },
+  {
+    label: "Settings & Audit",
+    to: "/admin/settings",
+    icon: Settings,
+    restrictedTo: ["master_admin", "head_admin"],
+  },
 ];
-
-const CURRENT_ADMIN_ROLE = "Front Desk Admin";
 
 export function AdminLayout() {
   const navigate = useNavigate();
+  const { user, role, logout } = useAuth();
 
-  function handleLogout() {
-    navigate("/admin");
+  const visibleLinks = ADMIN_NAV_LINKS.filter(
+    (link) => !link.restrictedTo || (role && link.restrictedTo.includes(role)),
+  );
+
+  async function handleLogout() {
+    await logout();
+    navigate("/admin", { replace: true });
   }
 
   return (
@@ -43,7 +55,7 @@ export function AdminLayout() {
         </div>
 
         <nav className="flex flex-col gap-1 p-4">
-          {ADMIN_NAV_LINKS.map((link) => (
+          {visibleLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
@@ -67,8 +79,11 @@ export function AdminLayout() {
           <p className="text-sm text-white/50">
             Signed in as{" "}
             <span className="font-semibold text-white">
-              {CURRENT_ADMIN_ROLE}
+              {formatRoleLabel(role)}
             </span>
+            {user?.email && (
+              <span className="text-white/40"> &middot; {user.email}</span>
+            )}
           </p>
 
           <button

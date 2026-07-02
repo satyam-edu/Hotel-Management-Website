@@ -146,5 +146,15 @@ export interface Database {
       enquiry_status: EnquiryStatus;
       payment_status_type: PaymentStatus;
     };
+    Functions: {
+      is_staff: {
+        Args: { uid: string };
+        Returns: boolean;
+      };
+      current_staff_role: {
+        Args: Record<string, never>;
+        Returns: StaffRoleType;
+      };
+    };
   };
 }
