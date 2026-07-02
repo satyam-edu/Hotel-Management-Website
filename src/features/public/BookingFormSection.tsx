@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { BriefcaseBusiness, Calendar, Users } from "lucide-react";
 import { DUMMY_ROOMS } from "./dummyRooms";
 
-const WHATSAPP_NUMBER = "910000000000";
+const WHATSAPP_NUMBER = "919956050766";
 const GST_RATE = 0.12;
 
 const CANCELLATION_POLICY = [

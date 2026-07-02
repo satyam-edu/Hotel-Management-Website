@@ -28,11 +28,11 @@ export function Footer() {
           </div>
           <div className="flex items-center gap-3">
             <Phone size={18} className="shrink-0 text-primary" />
-            <span>+91 00000 00000</span>
+            <span>+91 9956050766 / +91 9956050767</span>
           </div>
           <div className="flex items-center gap-3">
             <Mail size={18} className="shrink-0 text-primary" />
-            <span>info@kamalainngrand.com</span>
+            <span>thekamalainn@gmail.com</span>
           </div>
           <p className="pt-2 text-xs text-white/50">
             Check-in 1:00 PM &middot; Check-out 11:00 AM
@@ -65,7 +65,10 @@ export function Footer() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-5 text-xs text-white/40">
-          <p>&copy; {new Date().getFullYear()} Hotel Kamala Inn Grand. All rights reserved.</p>
+          <p>
+            &copy; {new Date().getFullYear()} Hotel Kamala Inn Grand. All
+            rights reserved. &middot; GST NO.- 09AAZFK7676F1ZD
+          </p>
         </div>
       </div>
     </footer>

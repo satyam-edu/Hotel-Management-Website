@@ -20,8 +20,8 @@ export function AboutSection() {
             Set along the NH-28 bypass in Padrauna, Hotel Kamala Inn Grand has
             grown into one of the district's most trusted addresses for
             travellers, families, and celebrations alike. What began as a
-            modest wayside stop has become a full-service property known for
-            its banquet halls, event lawns, and genuinely warm service — a
+            modest wayside stop has become a full service property known for
+            its banquet halls, event lawns, and genuinely warm service a
             reputation built one stay, one wedding, one gathering at a time.
           </p>
 
