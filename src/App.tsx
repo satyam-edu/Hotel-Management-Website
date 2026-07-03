@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { HomePage } from "./pages/public/HomePage";
 import { AdminLogin } from "./features/admin/AdminLogin";
 import { Dashboard } from "./pages/admin/Dashboard";
+import { Enquiries } from "./pages/admin/Enquiries";
 import { FrontDesk } from "./pages/admin/FrontDesk";
 import { RoomMap } from "./pages/admin/RoomMap";
 import { Ledger } from "./pages/admin/Ledger";
@@ -30,6 +31,7 @@ function App() {
             }
           >
             <Route path="/admin/dashboard" element={<Dashboard />} />
+            <Route path="/admin/enquiries" element={<Enquiries />} />
             <Route path="/admin/front-desk" element={<FrontDesk />} />
             <Route path="/admin/room-map" element={<RoomMap />} />
             <Route path="/admin/ledger" element={<Ledger />} />

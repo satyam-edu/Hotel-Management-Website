@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  MailQuestion,
 } from "lucide-react";
 import logo from "../../assets/logo.png";
 import { formatRoleLabel, useAuth } from "../../context/AuthContext";
@@ -20,6 +21,7 @@ interface AdminNavLink {
 
 const ADMIN_NAV_LINKS: AdminNavLink[] = [
   { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Enquiries", to: "/admin/enquiries", icon: MailQuestion },
   { label: "Front Desk", to: "/admin/front-desk", icon: Inbox },
   { label: "Live Room Map", to: "/admin/room-map", icon: Grid3x3 },
   { label: "Master Ledger", to: "/admin/ledger", icon: BookOpen },

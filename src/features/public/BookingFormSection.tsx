@@ -1,7 +1,10 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { BriefcaseBusiness, Calendar, Users } from "lucide-react";
-import { DUMMY_ROOMS } from "./dummyRooms";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { BriefcaseBusiness, Calendar, CheckCircle2, Users } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
+import { generateEnquiryReference } from "../../lib/enquiries";
+import { loadRoomCategories } from "../../lib/rooms";
+import { supabase } from "../../lib/supabase";
+import type { RoomCategory } from "../../types/database";
 
 const WHATSAPP_NUMBER = "919956050766";
 const GST_RATE = 0.12;
@@ -21,7 +24,7 @@ interface BookingFormState {
   checkOut: string;
   adults: number;
   children: number;
-  roomType: string;
+  roomTypeId: string;
   specialRequests: string;
 }
 
@@ -35,7 +38,7 @@ const INITIAL_STATE: BookingFormState = {
   checkOut: "",
   adults: 2,
   children: 0,
-  roomType: DUMMY_ROOMS[0].name,
+  roomTypeId: "",
   specialRequests: "",
 };
 
@@ -59,6 +62,26 @@ function formatCurrency(amount: number): string {
 
 export function BookingFormSection() {
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
+  const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [confirmedReference, setConfirmedReference] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await loadRoomCategories({ sellableOnly: true });
+      setRoomCategories(data);
+      if (data.length > 0) {
+        setForm((prev) =>
+          prev.roomTypeId ? prev : { ...prev, roomTypeId: data[0].id },
+        );
+      }
+    }
+
+    loadCategories();
+  }, []);
 
   function updateField<K extends keyof BookingFormState>(
     field: K,
@@ -68,26 +91,61 @@ export function BookingFormSection() {
   }
 
   const selectedRoom = useMemo(
-    () => DUMMY_ROOMS.find((room) => room.name === form.roomType) ?? DUMMY_ROOMS[0],
-    [form.roomType],
+    () => roomCategories.find((room) => room.id === form.roomTypeId) ?? null,
+    [roomCategories, form.roomTypeId],
   );
 
   const nights = countNights(form.checkIn, form.checkOut);
-  const subtotal = selectedRoom.nightlyRate * nights;
+  const subtotal = (selectedRoom?.nightly_rate ?? 0) * nights;
   const gstAmount = subtotal * GST_RATE;
   const totalEstimate = subtotal + gstAmount;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!supabase) {
+      setSubmitError("Could not submit your enquiry. Please try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    const referenceCode = generateEnquiryReference();
+
+    const { error } = await supabase.from("enquiries").insert({
+      reference_code: referenceCode,
+      full_name: form.fullName,
+      mobile: form.mobile,
+      email: form.email,
+      check_in_date: form.checkIn,
+      check_out_date: form.checkOut,
+      adults: form.adults,
+      children: form.children,
+      room_type_id: form.roomTypeId || null,
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      console.error("Failed to submit enquiry:", error.message);
+      setSubmitError(
+        "Your enquiry could not be submitted. Please try again — your details have been kept.",
+      );
+      return;
+    }
+
+    setConfirmedReference(referenceCode);
+
     const message = `Hello, I would like to enquire about a booking.
+Reference: ${referenceCode}
 Name: ${form.fullName}
 Mobile: ${form.mobile}
 Email: ${form.email}
 Check-in: ${form.checkIn}
 Check-out: ${form.checkOut}
 Guests: ${form.adults} Adults, ${form.children} Children
-Room Type: ${form.roomType}
+Room Type: ${selectedRoom?.name ?? "Not specified"}
 Special Requests: ${form.specialRequests || "None"}
 Estimated Total: ${formatCurrency(totalEstimate)}`;
 
@@ -240,12 +298,12 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
                 </label>
                 <select
                   id="roomType"
-                  value={form.roomType}
-                  onChange={(e) => updateField("roomType", e.target.value)}
+                  value={form.roomTypeId}
+                  onChange={(e) => updateField("roomTypeId", e.target.value)}
                   className={inputClasses}
                 >
-                  {DUMMY_ROOMS.map((room) => (
-                    <option key={room.id} value={room.name} className="bg-background-dark">
+                  {roomCategories.map((room) => (
+                    <option key={room.id} value={room.id} className="bg-background-dark">
                       {room.name}
                     </option>
                   ))}
@@ -268,12 +326,37 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-sm bg-primary py-4 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90"
-          >
-            Submit Booking Enquiry
-          </button>
+          {confirmedReference ? (
+            <div
+              className="flex items-start gap-3 rounded-sm border border-emerald-400/25 bg-emerald-400/10 p-5 text-sm text-emerald-300"
+              role="status"
+            >
+              <CheckCircle2 size={20} className="mt-0.5 shrink-0" />
+              <p>
+                Enquiry received, reference:{" "}
+                <span className="font-mono font-semibold">
+                  {confirmedReference}
+                </span>
+                . Our front desk will be in touch with you shortly.
+              </p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-sm bg-primary py-4 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? "Submitting…" : "Submit Booking Enquiry"}
+              </button>
+
+              {submitError && (
+                <p className="text-sm text-red-400" role="alert">
+                  {submitError}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         <aside
@@ -293,12 +376,14 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <dt className="text-white/60">Room</dt>
-              <dd className="font-medium text-white">{selectedRoom.name}</dd>
+              <dd className="font-medium text-white">
+                {selectedRoom?.name ?? "—"}
+              </dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-white/60">Rate / night</dt>
               <dd className="font-medium text-primary">
-                {formatCurrency(selectedRoom.nightlyRate)}
+                {formatCurrency(selectedRoom?.nightly_rate ?? 0)}
               </dd>
             </div>
             <div className="flex items-center justify-between">
