@@ -37,6 +37,8 @@ export type RoomCategory = {
   cover_photo_url: string | null;
   is_archived: boolean;
   is_unavailable: boolean;
+  max_adults: number;
+  max_children: number;
   created_at: string;
   updated_at: string;
 };

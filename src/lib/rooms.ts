@@ -3,6 +3,9 @@ import type { PhysicalRoom, RoomCategory } from "../types/database";
 
 export type PhysicalRoomWithCategory = PhysicalRoom & {
   category_name: string;
+  nightly_rate: number;
+  max_adults: number;
+  max_children: number;
 };
 
 export async function loadRoomCategories(
@@ -41,7 +44,7 @@ export async function loadPhysicalRooms(): Promise<{
 
   const { data, error } = await supabase
     .from("physical_rooms")
-    .select("*, room_categories(name)")
+    .select("*, room_categories(name, nightly_rate, max_adults, max_children)")
     .order("room_number");
 
   if (error) {
@@ -51,11 +54,19 @@ export async function loadPhysicalRooms(): Promise<{
 
   const rooms = (data ?? []).map((row) => {
     const { room_categories, ...room } = row as PhysicalRoom & {
-      room_categories: { name: string } | null;
+      room_categories: {
+        name: string;
+        nightly_rate: number;
+        max_adults: number;
+        max_children: number;
+      } | null;
     };
     return {
       ...room,
       category_name: room_categories?.name ?? "Unknown",
+      nightly_rate: room_categories?.nightly_rate ?? 0,
+      max_adults: room_categories?.max_adults ?? 1,
+      max_children: room_categories?.max_children ?? 0,
     };
   });
 
