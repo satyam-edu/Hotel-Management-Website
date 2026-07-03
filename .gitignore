@@ -28,3 +28,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI Agent & Claude CLI artifacts
+.agents/
+.claude/
+skills-lock.json
