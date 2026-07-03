@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import logo from "../../assets/logo.png";
@@ -12,20 +13,38 @@ const inputClasses =
 
 const labelClasses = "mb-1.5 block text-xs tracking-wide text-white/50";
 
+const SUCCESS_REDIRECT_DELAY_MS = 700;
+
 export function AdminLogin() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { session, isLoading, login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [justSignedIn, setJustSignedIn] = useState(false);
   const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   const redirectTo =
     (location.state as { from?: string } | null)?.from ?? "/admin/dashboard";
+
+  useEffect(() => {
+    if (!justSignedIn) return;
+
+    const timeout = setTimeout(() => {
+      navigate(redirectTo, { replace: true });
+    }, SUCCESS_REDIRECT_DELAY_MS);
+
+    return () => clearTimeout(timeout);
+  }, [justSignedIn, navigate, redirectTo]);
+
+  if (!isLoading && session && !justSignedIn) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,11 +56,11 @@ export function AdminLogin() {
     setIsSubmitting(false);
 
     if (loginError) {
-      setError("Invalid credentials. Please check your email and password.");
+      setError(loginError);
       return;
     }
 
-    navigate(redirectTo, { replace: true });
+    setJustSignedIn(true);
   }
 
   async function handleBootstrapSignUp() {
@@ -103,15 +122,25 @@ export function AdminLogin() {
               <label htmlFor="password" className={labelClasses}>
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className={inputClasses}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={isPasswordVisible ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={`${inputClasses} pr-11`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible((visible) => !visible)}
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-white/40 transition-colors duration-300 hover:text-white/80"
+                >
+                  {isPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -121,12 +150,22 @@ export function AdminLogin() {
             </p>
           )}
 
+          {justSignedIn && (
+            <p className="mt-4 text-sm text-emerald-400" role="status">
+              Signed in — redirecting…
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || justSignedIn}
             className="mt-7 w-full rounded-sm bg-primary py-3 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting ? "Authenticating…" : "Authenticate"}
+            {justSignedIn
+              ? "Redirecting…"
+              : isSubmitting
+                ? "Authenticating…"
+                : "Authenticate"}
           </button>
         </form>
 

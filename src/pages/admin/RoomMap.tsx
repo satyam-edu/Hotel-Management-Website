@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { PHYSICAL_ROOMS, type PhysicalRoomEntry } from "../../data/inventory";
 import { supabase } from "../../lib/supabase";
 import { todayIsoDate } from "../../lib/date";
+import { loadPhysicalRooms, type PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { Reservation } from "../../types/database";
 
 type RoomStatus = "Available" | "Occupied";
@@ -11,20 +11,15 @@ const STATUS_STYLES: Record<RoomStatus, { dot: string; text: string }> = {
   Occupied: { dot: "bg-red-400", text: "text-red-400" },
 };
 
-function floorFor(roomNumber: string): number {
-  return Math.floor(Number(roomNumber) / 100);
-}
-
 function groupByFloor(
-  rooms: PhysicalRoomEntry[],
-): Map<number, PhysicalRoomEntry[]> {
-  const floors = new Map<number, PhysicalRoomEntry[]>();
+  rooms: PhysicalRoomWithCategory[],
+): Map<number, PhysicalRoomWithCategory[]> {
+  const floors = new Map<number, PhysicalRoomWithCategory[]>();
 
   for (const room of rooms) {
-    const floor = floorFor(room.room_number);
-    const existing = floors.get(floor) ?? [];
+    const existing = floors.get(room.floor) ?? [];
     existing.push(room);
-    floors.set(floor, existing);
+    floors.set(room.floor, existing);
   }
 
   for (const rooms of floors.values()) {
@@ -35,11 +30,12 @@ function groupByFloor(
 }
 
 export function RoomMap() {
+  const [rooms, setRooms] = useState<PhysicalRoomWithCategory[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const floors = useMemo(() => groupByFloor(PHYSICAL_ROOMS), []);
+  const floors = useMemo(() => groupByFloor(rooms), [rooms]);
   const sortedFloorNumbers = useMemo(
     () => Array.from(floors.keys()).sort((a, b) => a - b),
     [floors],
@@ -48,7 +44,7 @@ export function RoomMap() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadActiveReservations() {
+    async function loadRoomMapData() {
       if (!supabase) {
         setLoadError("Database connection is not configured.");
         setIsLoading(false);
@@ -57,27 +53,34 @@ export function RoomMap() {
 
       const today = todayIsoDate();
 
-      const { data, error } = await supabase
-        .from("reservations")
-        .select("*")
-        .in("status", ["Checked-In", "Confirmed"])
-        .lte("check_in_date", today)
-        .gte("check_out_date", today);
+      const [roomsResult, reservationsResult] = await Promise.all([
+        loadPhysicalRooms(),
+        supabase
+          .from("reservations")
+          .select("*")
+          .in("status", ["Checked-In", "Confirmed"])
+          .lte("check_in_date", today)
+          .gte("check_out_date", today),
+      ]);
 
       if (!isMounted) return;
 
-      if (error) {
-        console.error("Failed to load active reservations:", error.message);
+      if (roomsResult.error || reservationsResult.error) {
+        console.error(
+          "Failed to load room map data:",
+          roomsResult.error ?? reservationsResult.error?.message,
+        );
         setLoadError("Could not load live room status. Please refresh.");
         setIsLoading(false);
         return;
       }
 
-      setReservations(data ?? []);
+      setRooms(roomsResult.data);
+      setReservations(reservationsResult.data ?? []);
       setIsLoading(false);
     }
 
-    loadActiveReservations();
+    loadRoomMapData();
 
     return () => {
       isMounted = false;

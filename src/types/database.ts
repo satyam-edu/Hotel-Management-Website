@@ -23,6 +23,9 @@ export type SystemConfiguration = {
   check_in_time: string;
   check_out_time: string;
   cancellation_policy: string;
+  tax_rate: number;
+  tax_id: string;
+  invoice_terms: string;
   updated_at: string;
 };
 
@@ -70,8 +73,13 @@ export type Reservation = {
   room_number: string | null;
   check_in_date: string;
   check_out_date: string;
+  adults: number;
+  children: number;
   total_amount: number;
   tax_amount: number;
+  discount_amount: number;
+  amount_paid: number;
+  internal_notes: string;
   payment_status: PaymentStatus;
   status: ReservationStatus;
   is_cancelled: boolean;
@@ -94,11 +102,11 @@ export type StaffRole = {
   created_at: string;
 };
 
-type TableDefinition<Row, Insert, Update> = {
+type TableDefinition<Row, Insert, Update, Relationships = []> = {
   Row: Row;
   Insert: Insert;
   Update: Update;
-  Relationships: [];
+  Relationships: Relationships;
 };
 
 export type Database = {
@@ -119,7 +127,16 @@ export type Database = {
       physical_rooms: TableDefinition<
         PhysicalRoom,
         Omit<PhysicalRoom, "id" | "created_at"> & { id?: string },
-        Partial<Omit<PhysicalRoom, "id" | "created_at">>
+        Partial<Omit<PhysicalRoom, "id" | "created_at">>,
+        [
+          {
+            foreignKeyName: "physical_rooms_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "room_categories";
+            referencedColumns: ["id"];
+          },
+        ]
       >;
       enquiries: TableDefinition<
         Enquiry,
@@ -127,7 +144,16 @@ export type Database = {
           id?: string;
           status?: EnquiryStatus;
         },
-        Partial<Omit<Enquiry, "id" | "created_at">>
+        Partial<Omit<Enquiry, "id" | "created_at">>,
+        [
+          {
+            foreignKeyName: "enquiries_room_type_id_fkey";
+            columns: ["room_type_id"];
+            isOneToOne: false;
+            referencedRelation: "room_categories";
+            referencedColumns: ["id"];
+          },
+        ]
       >;
       reservations: TableDefinition<
         Reservation,
@@ -136,7 +162,12 @@ export type Database = {
           | "id"
           | "enquiry_id"
           | "assigned_room_id"
+          | "adults"
+          | "children"
           | "tax_amount"
+          | "discount_amount"
+          | "amount_paid"
+          | "internal_notes"
           | "payment_status"
           | "status"
           | "is_cancelled"
@@ -146,7 +177,12 @@ export type Database = {
           id?: string;
           enquiry_id?: string | null;
           assigned_room_id?: string | null;
+          adults?: number;
+          children?: number;
           tax_amount?: number;
+          discount_amount?: number;
+          amount_paid?: number;
+          internal_notes?: string;
           payment_status?: PaymentStatus;
           status?: ReservationStatus;
           is_cancelled?: boolean;
