@@ -28,6 +28,9 @@ const DEFAULT_CONFIG: SystemConfiguration = {
   check_in_time: "13:00",
   check_out_time: "11:00",
   cancellation_policy: "",
+  tax_rate: 12,
+  tax_id: "",
+  invoice_terms: "",
   updated_at: new Date().toISOString(),
 };
 

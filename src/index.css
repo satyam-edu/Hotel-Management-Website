@@ -85,3 +85,23 @@ h3,
   justify-content: center;
   background-color: var(--color-background);
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible;
+  }
+
+  .print-receipt {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+  }
+}

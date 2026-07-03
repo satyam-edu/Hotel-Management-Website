@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useLocation } from "react-router-dom";
 import {
   BedDouble,
   Calendar,
@@ -8,10 +9,12 @@ import {
   LogOut,
   Phone,
   User,
+  Users,
 } from "lucide-react";
-import { PHYSICAL_ROOMS } from "../../data/inventory";
 import { supabase } from "../../lib/supabase";
 import { todayIsoDate } from "../../lib/date";
+import { loadPhysicalRooms, type PhysicalRoomWithCategory } from "../../lib/rooms";
+import type { PendingEnquiry } from "../../lib/enquiries";
 import type { Reservation } from "../../types/database";
 
 interface BookingFormState {
@@ -20,15 +23,19 @@ interface BookingFormState {
   roomNumber: string;
   checkIn: string;
   checkOut: string;
+  adults: number;
+  children: number;
   totalAmount: string;
 }
 
 const INITIAL_STATE: BookingFormState = {
   guestName: "",
   phone: "",
-  roomNumber: PHYSICAL_ROOMS[0].room_number,
+  roomNumber: "",
   checkIn: "",
   checkOut: "",
+  adults: 2,
+  children: 0,
   totalAmount: "",
 };
 
@@ -38,7 +45,26 @@ const inputClasses =
 const labelClasses = "mb-1.5 flex items-center gap-1.5 text-xs tracking-wide text-white/50";
 
 export function FrontDesk() {
-  const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
+  const location = useLocation();
+  const fromEnquiry = (location.state as { fromEnquiry?: PendingEnquiry } | null)
+    ?.fromEnquiry;
+
+  const [form, setForm] = useState<BookingFormState>(() =>
+    fromEnquiry
+      ? {
+          ...INITIAL_STATE,
+          guestName: fromEnquiry.full_name,
+          phone: fromEnquiry.mobile,
+          checkIn: fromEnquiry.check_in_date,
+          checkOut: fromEnquiry.check_out_date,
+          adults: fromEnquiry.adults,
+          children: fromEnquiry.children,
+        }
+      : INITIAL_STATE,
+  );
+  const [convertingEnquiryId, setConvertingEnquiryId] = useState<string | null>(
+    fromEnquiry?.id ?? null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -47,6 +73,22 @@ export function FrontDesk() {
   const [departures, setDepartures] = useState<Reservation[]>([]);
   const [isLoadingPanels, setIsLoadingPanels] = useState(true);
   const [panelsError, setPanelsError] = useState<string | null>(null);
+
+  const [rooms, setRooms] = useState<PhysicalRoomWithCategory[]>([]);
+
+  useEffect(() => {
+    async function loadRooms() {
+      const result = await loadPhysicalRooms();
+      setRooms(result.data);
+      if (result.data.length > 0) {
+        setForm((prev) =>
+          prev.roomNumber ? prev : { ...prev, roomNumber: result.data[0].room_number },
+        );
+      }
+    }
+
+    loadRooms();
+  }, []);
 
   async function loadDailyPanels() {
     if (!supabase) {
@@ -116,18 +158,35 @@ export function FrontDesk() {
       room_number: form.roomNumber,
       check_in_date: form.checkIn,
       check_out_date: form.checkOut,
+      adults: form.adults,
+      children: form.children,
       total_amount: Number(form.totalAmount),
       status: "Confirmed",
     });
 
-    setIsSubmitting(false);
-
     if (error) {
+      setIsSubmitting(false);
       console.error("Failed to create reservation:", error.message);
       setSubmitError("Could not save this booking. Please try again.");
       return;
     }
 
+    if (convertingEnquiryId && supabase) {
+      const { error: enquiryError } = await supabase
+        .from("enquiries")
+        .update({ status: "confirmed" })
+        .eq("id", convertingEnquiryId);
+
+      if (enquiryError) {
+        console.error(
+          "Booking saved, but failed to mark enquiry as confirmed:",
+          enquiryError.message,
+        );
+      }
+    }
+
+    setIsSubmitting(false);
+    setConvertingEnquiryId(null);
     setForm(INITIAL_STATE);
     setSubmitSuccess(true);
     await loadDailyPanels();
@@ -152,6 +211,12 @@ export function FrontDesk() {
           <h2 className="font-display text-xl font-semibold text-white">
             New Booking
           </h2>
+
+          {convertingEnquiryId && (
+            <p className="mt-2 text-xs uppercase tracking-wider text-primary">
+              Converting enquiry — review details and confirm to complete.
+            </p>
+          )}
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <div>
@@ -198,7 +263,7 @@ export function FrontDesk() {
                 onChange={(e) => updateField("roomNumber", e.target.value)}
                 className={inputClasses}
               >
-                {PHYSICAL_ROOMS.map((room) => (
+                {rooms.map((room) => (
                   <option
                     key={room.room_number}
                     value={room.room_number}
@@ -208,6 +273,51 @@ export function FrontDesk() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label htmlFor="adults" className={labelClasses}>
+                <Users size={14} />
+                Adults
+                {fromEnquiry && (
+                  <span className="normal-case text-primary/80">
+                    (from enquiry)
+                  </span>
+                )}
+              </label>
+              <input
+                id="adults"
+                type="number"
+                min={1}
+                required
+                value={form.adults}
+                onChange={(e) =>
+                  updateField("adults", Number(e.target.value))
+                }
+                className={inputClasses}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="children" className={labelClasses}>
+                <Users size={14} />
+                Children
+                {fromEnquiry && (
+                  <span className="normal-case text-primary/80">
+                    (from enquiry)
+                  </span>
+                )}
+              </label>
+              <input
+                id="children"
+                type="number"
+                min={0}
+                value={form.children}
+                onChange={(e) =>
+                  updateField("children", Number(e.target.value))
+                }
+                className={inputClasses}
+              />
             </div>
 
             <div>
