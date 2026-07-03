@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { LogIn, LogOut, Percent } from "lucide-react";
-import { PHYSICAL_ROOMS } from "../../data/inventory";
 import { supabase } from "../../lib/supabase";
 import { todayIsoDate } from "../../lib/date";
+import { loadPhysicalRooms } from "../../lib/rooms";
+import { RoomRatesPanel } from "./RoomRatesPanel";
 import type { Reservation } from "../../types/database";
 
 export function Dashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [totalRooms, setTotalRooms] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -22,23 +24,30 @@ export function Dashboard() {
 
       const today = todayIsoDate();
 
-      const { data, error } = await supabase
-        .from("reservations")
-        .select("*")
-        .in("status", ["Checked-In", "Confirmed"])
-        .lte("check_in_date", today)
-        .gte("check_out_date", today);
+      const [reservationsResult, roomsResult] = await Promise.all([
+        supabase
+          .from("reservations")
+          .select("*")
+          .in("status", ["Checked-In", "Confirmed"])
+          .lte("check_in_date", today)
+          .gte("check_out_date", today),
+        loadPhysicalRooms(),
+      ]);
 
       if (!isMounted) return;
 
-      if (error) {
-        console.error("Failed to load dashboard reservations:", error.message);
+      if (reservationsResult.error || roomsResult.error) {
+        console.error(
+          "Failed to load dashboard reservations:",
+          reservationsResult.error?.message ?? roomsResult.error,
+        );
         setLoadError("Could not load today's statistics. Please refresh.");
         setIsLoading(false);
         return;
       }
 
-      setReservations(data ?? []);
+      setReservations(reservationsResult.data ?? []);
+      setTotalRooms(roomsResult.data.length);
       setIsLoading(false);
     }
 
@@ -51,7 +60,6 @@ export function Dashboard() {
 
   const stats = useMemo(() => {
     const today = todayIsoDate();
-    const totalRooms = PHYSICAL_ROOMS.length;
 
     const occupiedRoomNumbers = new Set<string>();
     let arrivalsToday = 0;
@@ -82,7 +90,7 @@ export function Dashboard() {
         : 0;
 
     return { occupancyRate, arrivalsToday, departuresToday };
-  }, [reservations]);
+  }, [reservations, totalRooms]);
 
   return (
     <div className="space-y-8">
@@ -141,6 +149,8 @@ export function Dashboard() {
           </p>
         </div>
       </div>
+
+      <RoomRatesPanel />
     </div>
   );
 }
