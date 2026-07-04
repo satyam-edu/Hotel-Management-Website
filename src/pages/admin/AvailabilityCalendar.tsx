@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Calendar, ChevronLeft, ChevronRight, Phone, User, X } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { daysInMonth, toIsoDate, todayIsoDate } from "../../lib/date";
 import { loadPhysicalRooms, type PhysicalRoomWithCategory } from "../../lib/rooms";
@@ -20,6 +20,21 @@ const MONTH_NAMES = [
   "December",
 ];
 
+const MIN_DAY_COLUMN_WIDTH = 40;
+const ROOM_COLUMN_WIDTH = 96;
+const ROW_HEIGHT = 44;
+
+const STATUS_STYLES: Record<string, { fill: string; text: string }> = {
+  "Checked-In": {
+    fill: "bg-indigo-500/10 hover:bg-indigo-500/15",
+    text: "text-indigo-300",
+  },
+  Confirmed: {
+    fill: "bg-amber-500/10 hover:bg-amber-500/15",
+    text: "text-amber-300",
+  },
+};
+
 function groupByFloor(
   rooms: PhysicalRoomWithCategory[],
 ): Map<number, PhysicalRoomWithCategory[]> {
@@ -38,6 +53,27 @@ function groupByFloor(
   return floors;
 }
 
+function formatDateRange(checkIn: string, checkOut: string): string {
+  const format = (value: string) =>
+    new Date(value).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+    });
+  return `${format(checkIn)} — ${format(checkOut)}`;
+}
+
+interface CalendarRow {
+  room: PhysicalRoomWithCategory;
+  top: number;
+}
+
+interface ReservationStrip {
+  reservation: Reservation;
+  top: number;
+  startCol: number;
+  spanCols: number;
+}
+
 export function AvailabilityCalendar() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -47,11 +83,38 @@ export function AvailabilityCalendar() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [popoverReservation, setPopoverReservation] = useState<Reservation | null>(
+    null,
+  );
+
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
+    resizeObserverRef.current?.disconnect();
+    if (!node) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setAvailableWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    resizeObserverRef.current = observer;
+  }, []);
+
+  useEffect(() => {
+    return () => resizeObserverRef.current?.disconnect();
+  }, []);
 
   const totalDays = daysInMonth(year, monthIndex);
   const monthStart = toIsoDate(year, monthIndex, 1);
   const monthEnd = toIsoDate(year, monthIndex, totalDays);
   const todayIso = todayIsoDate();
+
+  const dayColumnWidth = Math.max(
+    MIN_DAY_COLUMN_WIDTH,
+    (availableWidth - ROOM_COLUMN_WIDTH) / totalDays,
+  );
 
   const loadCalendarData = useCallback(async () => {
     if (!supabase) {
@@ -123,29 +186,67 @@ export function AvailabilityCalendar() {
     [totalDays],
   );
 
-  const reservationsByRoom = useMemo(() => {
-    const map = new Map<string, Reservation[]>();
-    for (const reservation of reservations) {
-      if (!reservation.room_number) continue;
-      const existing = map.get(reservation.room_number) ?? [];
-      existing.push(reservation);
-      map.set(reservation.room_number, existing);
+  // Flattened room rows (floor header rows interleaved) with a fixed pixel
+  // "top" offset each, so reservation strips can be absolutely positioned
+  // against the same coordinate space as the room grid beneath them.
+  const { rowsByFloor, gridRows, totalGridHeight } = useMemo(() => {
+    const rowsByFloor = new Map<number, CalendarRow[]>();
+    const gridRows: Array<{ kind: "floor"; floorNumber: number; top: number } | { kind: "room"; room: PhysicalRoomWithCategory; top: number }> = [];
+
+    let cursor = 0;
+    for (const floorNumber of sortedFloorNumbers) {
+      gridRows.push({ kind: "floor", floorNumber, top: cursor });
+      cursor += ROW_HEIGHT * 0.7;
+
+      const floorRows: CalendarRow[] = [];
+      for (const room of floors.get(floorNumber) ?? []) {
+        floorRows.push({ room, top: cursor });
+        gridRows.push({ kind: "room", room, top: cursor });
+        cursor += ROW_HEIGHT;
+      }
+      rowsByFloor.set(floorNumber, floorRows);
+    }
+
+    return { rowsByFloor, gridRows, totalGridHeight: cursor };
+  }, [floors, sortedFloorNumbers]);
+
+  const roomTopByNumber = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of gridRows) {
+      if (row.kind === "room") map.set(row.room.room_number, row.top);
     }
     return map;
-  }, [reservations]);
+  }, [gridRows]);
 
-  function reservationForCell(
-    roomNumber: string,
-    day: number,
-  ): Reservation | null {
-    const dateIso = toIsoDate(year, monthIndex, day);
-    const roomReservations = reservationsByRoom.get(roomNumber) ?? [];
-    return (
-      roomReservations.find(
-        (r) => r.check_in_date <= dateIso && dateIso < r.check_out_date,
-      ) ?? null
-    );
-  }
+  const strips = useMemo<ReservationStrip[]>(() => {
+    const result: ReservationStrip[] = [];
+
+    for (const reservation of reservations) {
+      if (!reservation.room_number) continue;
+      const top = roomTopByNumber.get(reservation.room_number);
+      if (top === undefined) continue;
+
+      const clampedStart =
+        reservation.check_in_date < monthStart ? monthStart : reservation.check_in_date;
+      const clampedEndExclusive =
+        reservation.check_out_date > monthEnd
+          ? toIsoDate(year, monthIndex, totalDays + 1)
+          : reservation.check_out_date;
+
+      const startDay = Number(clampedStart.slice(8, 10));
+      const endDay =
+        clampedEndExclusive > monthEnd
+          ? totalDays + 1
+          : Number(clampedEndExclusive.slice(8, 10));
+
+      const startCol = startDay - 1;
+      const spanCols = Math.max(endDay - startDay, 1);
+
+      result.push({ reservation, top, startCol, spanCols });
+    }
+
+    return result;
+  }, [reservations, roomTopByNumber, monthStart, monthEnd, year, monthIndex, totalDays]);
 
   function goToPreviousMonth() {
     if (monthIndex === 0) {
@@ -164,6 +265,11 @@ export function AvailabilityCalendar() {
       setMonthIndex((m) => m + 1);
     }
   }
+
+  const gridWidth = totalDays * dayColumnWidth;
+  const todayDayIndex = todayIso >= monthStart && todayIso <= monthEnd
+    ? Number(todayIso.slice(8, 10)) - 1
+    : null;
 
   return (
     <div className="space-y-6">
@@ -217,99 +323,150 @@ export function AvailabilityCalendar() {
       )}
 
       {!isLoading && !loadError && (
-        <div className="glass-panel overflow-x-auto rounded-xl">
-          <table className="border-collapse text-left text-xs">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-10 border-b border-r border-white/10 bg-background-dark px-4 py-3 font-medium uppercase tracking-wider text-white/40">
+        <div className="glass-panel rounded-xl">
+          <div ref={scrollContainerRef} className="overflow-x-auto">
+            <div style={{ width: Math.max(ROOM_COLUMN_WIDTH + gridWidth, availableWidth) }}>
+              {/* Header row: day numbers */}
+              <div className="sticky top-0 z-20 flex border-b border-white/10 bg-background-dark">
+                <div
+                  className="sticky left-0 z-30 flex shrink-0 items-center border-r border-white/10 bg-background-dark px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-white/40"
+                  style={{ width: ROOM_COLUMN_WIDTH }}
+                >
                   Room
-                </th>
+                </div>
                 {dayNumbers.map((day) => {
-                  const dateIso = toIsoDate(year, monthIndex, day);
-                  const isToday = dateIso === todayIso;
+                  const isToday = day - 1 === todayDayIndex;
                   return (
-                    <th
+                    <div
                       key={day}
-                      className={`border-b border-white/10 px-2 py-3 text-center font-medium ${
-                        isToday ? "bg-primary/10 text-primary" : "text-white/40"
-                      }`}
+                      className="flex shrink-0 items-center justify-center py-2.5"
+                      style={{ width: dayColumnWidth }}
                     >
-                      {day}
-                    </th>
+                      {isToday ? (
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-background-dark shadow-[0_0_10px_rgba(212,175,55,0.5)]">
+                          {day}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium text-white/40">
+                          {day}
+                        </span>
+                      )}
+                    </div>
                   );
                 })}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedFloorNumbers.map((floorNumber) => (
-                <Fragment key={floorNumber}>
-                  <tr>
-                    <td
-                      colSpan={totalDays + 1}
-                      className="border-b border-white/5 bg-white/[0.02] px-4 py-1.5 text-[11px] uppercase tracking-[0.2em] text-primary"
-                    >
-                      Floor {floorNumber}
-                    </td>
-                  </tr>
-                  {floors.get(floorNumber)?.map((room) => (
-                    <tr key={room.room_number} className="border-b border-white/5">
-                      <td className="sticky left-0 z-10 whitespace-nowrap border-r border-white/10 bg-background-dark px-4 py-2 font-medium text-white/80">
-                        {room.room_number}
-                      </td>
-                      {dayNumbers.map((day) => {
-                        const reservation = reservationForCell(
-                          room.room_number,
-                          day,
-                        );
-                        return (
-                          <td
-                            key={day}
-                            className="border-l border-white/5 p-0 text-center"
-                          >
-                            {reservation ? (
-                              <div
-                                title={`${reservation.guest_name ?? "Guest"} · ${reservation.check_in_date} — ${reservation.check_out_date}`}
-                                className={`flex h-8 min-w-[2.25rem] items-center justify-center truncate px-1 text-[10px] font-medium ${
-                                  reservation.status === "Checked-In"
-                                    ? "bg-indigo-400/25 text-indigo-200"
-                                    : "bg-amber-400/25 text-amber-200"
-                                }`}
-                              >
-                                {reservation.guest_name ?? "—"}
-                              </div>
-                            ) : (
-                              <div className="h-8 min-w-[2.25rem]" />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
+              </div>
 
-              {sortedFloorNumbers.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={totalDays + 1}
-                    className="px-6 py-10 text-center text-sm text-white/40"
-                  >
-                    No physical rooms configured yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              {/* Body: room labels (left, sticky) + relatively positioned grid with absolute strips */}
+              <div className="relative flex">
+                <div
+                  className="sticky left-0 z-10 shrink-0 border-r border-white/10 bg-background-dark"
+                  style={{ width: ROOM_COLUMN_WIDTH }}
+                >
+                  {sortedFloorNumbers.map((floorNumber) => (
+                    <div key={floorNumber}>
+                      <div
+                        className="flex items-center bg-white/[0.03] px-4 text-[10px] uppercase tracking-[0.2em] text-primary/70"
+                        style={{ height: ROW_HEIGHT * 0.7 }}
+                      >
+                        Fl. {floorNumber}
+                      </div>
+                      {(rowsByFloor.get(floorNumber) ?? []).map((row) => (
+                        <div
+                          key={row.room.room_number}
+                          className="flex items-center border-t border-white/5 px-4 text-xs font-medium text-white/80"
+                          style={{ height: ROW_HEIGHT }}
+                        >
+                          {row.room.room_number}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  className="relative"
+                  style={{ width: gridWidth, height: totalGridHeight }}
+                >
+                  {/* Vertical day gridlines */}
+                  {dayNumbers.map((day) => (
+                    <div
+                      key={day}
+                      className={`absolute top-0 bottom-0 border-r ${
+                        day - 1 === todayDayIndex
+                          ? "border-primary/25"
+                          : "border-white/[0.04]"
+                      }`}
+                      style={{ left: (day - 1) * dayColumnWidth }}
+                    />
+                  ))}
+
+                  {/* Row backgrounds (floor headers + room row dividers) */}
+                  {gridRows.map((row) =>
+                    row.kind === "floor" ? (
+                      <div
+                        key={`floor-${row.floorNumber}`}
+                        className="absolute inset-x-0 bg-white/[0.03]"
+                        style={{ top: row.top, height: ROW_HEIGHT * 0.7 }}
+                      />
+                    ) : (
+                      <div
+                        key={`room-${row.room.room_number}`}
+                        className="absolute inset-x-0 border-t border-white/5"
+                        style={{ top: row.top, height: ROW_HEIGHT }}
+                      />
+                    ),
+                  )}
+
+                  {/* Reservation strips */}
+                  {strips.map(({ reservation, top, startCol, spanCols }) => {
+                    const styles =
+                      STATUS_STYLES[reservation.status] ?? STATUS_STYLES.Confirmed;
+                    return (
+                      <button
+                        key={reservation.id}
+                        type="button"
+                        onClick={() =>
+                          setPopoverReservation((current) =>
+                            current?.id === reservation.id ? null : reservation,
+                          )
+                        }
+                        title={`${reservation.guest_name ?? "Guest"} · ${reservation.check_in_date} — ${reservation.check_out_date}`}
+                        className={`group absolute flex cursor-pointer appearance-none items-center gap-1.5 overflow-hidden rounded-lg border-0 border-l-2 border-solid px-2 text-left outline-none transition-all duration-200 hover:z-10 hover:brightness-125 ${styles.fill} ${styles.text}`}
+                        style={{
+                          top: top + 4,
+                          height: ROW_HEIGHT - 8,
+                          left: startCol * dayColumnWidth + 2,
+                          width: spanCols * dayColumnWidth - 4,
+                          borderLeftWidth: 2,
+                          borderLeftColor: "currentColor",
+                        }}
+                      >
+                        <span className="truncate text-[11px] font-medium">
+                          {reservation.guest_name ?? "Guest"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {sortedFloorNumbers.length === 0 && (
+            <div className="px-6 py-10 text-center text-sm text-white/40">
+              No physical rooms configured yet.
+            </div>
+          )}
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-indigo-400/25" />
+          <span className="h-3 w-3 rounded-sm bg-indigo-500/10 border-l-2 border-indigo-400" />
           Checked-In
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-amber-400/25" />
+          <span className="h-3 w-3 rounded-sm bg-amber-500/10 border-l-2 border-amber-400" />
           Confirmed
         </span>
         <span className="flex items-center gap-1.5">
@@ -317,6 +474,51 @@ export function AvailabilityCalendar() {
           Vacant
         </span>
       </div>
+
+      {popoverReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-panel w-full max-w-sm rounded-xl p-6">
+            <div className="flex items-start justify-between">
+              <h3 className="font-display text-lg font-semibold text-white">
+                Room {popoverReservation.room_number}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPopoverReservation(null)}
+                aria-label="Close"
+                className="rounded-sm p-1.5 text-white/40 transition-colors duration-300 hover:bg-white/5 hover:text-white/80"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3 text-sm">
+              <p className="flex items-center gap-2 text-white/90">
+                <User size={14} className="shrink-0 text-primary" />
+                {popoverReservation.guest_name ?? "—"}
+              </p>
+              <p className="flex items-center gap-2 text-white/70">
+                <Phone size={14} className="shrink-0 text-white/40" />
+                {popoverReservation.guest_phone ?? "—"}
+              </p>
+              <p className="flex items-center gap-2 text-white/70">
+                <Calendar size={14} className="shrink-0 text-white/40" />
+                {formatDateRange(
+                  popoverReservation.check_in_date,
+                  popoverReservation.check_out_date,
+                )}
+              </p>
+            </div>
+
+            <a
+              href="/admin/ledger"
+              className="mt-6 block rounded-sm bg-primary py-2.5 text-center text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90"
+            >
+              View in Master Ledger
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
