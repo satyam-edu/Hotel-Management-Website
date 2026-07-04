@@ -2,6 +2,8 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
+import { logAction } from "../../lib/audit";
+import { useAuth } from "../../context/AuthContext";
 import type { PaymentStatus, Reservation } from "../../types/database";
 
 interface EditLedgerModalProps {
@@ -24,6 +26,7 @@ export function EditLedgerModal({
   onClose,
   onSaved,
 }: EditLedgerModalProps) {
+  const { user } = useAuth();
   const nights = countNights(reservation.check_in_date, reservation.check_out_date);
   const impliedNightlyRate =
     nights > 0
@@ -96,14 +99,22 @@ export function EditLedgerModal({
       })
       .eq("id", reservation.id);
 
-    setIsSaving(false);
-
     if (error) {
+      setIsSaving(false);
       console.error("Failed to update reservation:", error.message);
       setSaveError("Could not save these changes. Please try again.");
       return;
     }
 
+    if (user) {
+      await logAction(
+        user.id,
+        "edit_ledger",
+        `Edited booking for ${reservation.guest_name ?? "guest"} (Room ${reservation.room_number ?? "—"}): discount ${formatCurrency(parsedDiscount)}, payment ${reconciledStatus}`,
+      );
+    }
+
+    setIsSaving(false);
     onSaved();
   }
 

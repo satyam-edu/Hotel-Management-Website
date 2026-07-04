@@ -1,14 +1,6 @@
 import { useState } from "react";
-import {
-  Activity,
-  CheckCircle,
-  Mail,
-  ScrollText,
-  Trash2,
-  User,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { Mail, ScrollText, Trash2, User, Users } from "lucide-react";
+import { SettingsAudit } from "./SettingsAudit";
 
 type SettingsTab = "staff" | "audit";
 type StaffAccountRole = "master_admin" | "head_admin" | "sub_admin";
@@ -19,14 +11,6 @@ interface StaffAccount {
   email: string;
   role: StaffAccountRole;
   isProtected?: boolean;
-}
-
-interface AuditEvent {
-  id: string;
-  icon: typeof Activity;
-  description: string;
-  actor: string;
-  timestamp: string;
 }
 
 const STAFF_ACCOUNTS: StaffAccount[] = [
@@ -62,37 +46,6 @@ const ROLE_LABELS: Record<StaffAccountRole, string> = {
   head_admin: "Head Admin",
   sub_admin: "Sub Admin",
 };
-
-const AUDIT_EVENTS: AuditEvent[] = [
-  {
-    id: "audit-1",
-    icon: CheckCircle,
-    description: "Vikram Yadav checked in to Room 205",
-    actor: "Front Desk Admin",
-    timestamp: "Today, 11:42 AM",
-  },
-  {
-    id: "audit-2",
-    icon: Activity,
-    description: "Updated nightly pricing for Executive Suite",
-    actor: "Master Admin",
-    timestamp: "Today, 09:15 AM",
-  },
-  {
-    id: "audit-3",
-    icon: UserPlus,
-    description: "Created a new Sub-Administrator account for Suresh Kumar",
-    actor: "Master Admin",
-    timestamp: "Yesterday, 06:03 PM",
-  },
-  {
-    id: "audit-4",
-    icon: CheckCircle,
-    description: "Cancelled booking KIG-1035 for Neha Tripathi",
-    actor: "Head Admin",
-    timestamp: "Yesterday, 02:27 PM",
-  },
-];
 
 const inputClasses =
   "w-full rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary";
@@ -140,7 +93,7 @@ export function Settings() {
         </button>
       </div>
 
-      {activeTab === "staff" ? <StaffManagementPanel /> : <AuditLogPanel />}
+      {activeTab === "staff" ? <StaffManagementPanel /> : <SettingsAudit />}
     </div>
   );
 }
@@ -261,32 +214,3 @@ function StaffManagementPanel() {
   );
 }
 
-function AuditLogPanel() {
-  return (
-    <div className="glass-panel rounded-xl p-6 sm:p-8">
-      <h2 className="font-display text-xl font-semibold text-white">
-        System Audit Log
-      </h2>
-
-      <ul className="mt-6 space-y-1">
-        {AUDIT_EVENTS.map((event) => (
-          <li
-            key={event.id}
-            className="flex items-start gap-4 border-b border-white/5 py-4 last:border-0"
-          >
-            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <event.icon size={16} />
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-white/85">{event.description}</p>
-              <p className="mt-1 text-xs text-white/40">
-                {event.actor} &middot; {event.timestamp}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}

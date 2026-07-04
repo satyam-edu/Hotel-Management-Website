@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   BedDouble,
@@ -10,7 +10,11 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { todayIsoDate } from "../../lib/date";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
+import { checkRoomAvailability } from "../../lib/rooms";
+import { logAction } from "../../lib/audit";
+import { useAuth } from "../../context/AuthContext";
 import type { PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { PendingEnquiry } from "../../lib/enquiries";
 import type { PaymentStatus } from "../../types/database";
@@ -19,6 +23,7 @@ interface WalkInBookingModalProps {
   rooms: PhysicalRoomWithCategory[];
   taxRatePercent: number;
   fromEnquiry?: PendingEnquiry;
+  initialRoomNumber?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -49,14 +54,16 @@ export function WalkInBookingModal({
   rooms,
   taxRatePercent,
   fromEnquiry,
+  initialRoomNumber,
   onClose,
   onSaved,
 }: WalkInBookingModalProps) {
+  const { user } = useAuth();
   const [form, setForm] = useState<FormState>(() => ({
     guestName: fromEnquiry?.full_name ?? "",
     phone: fromEnquiry?.mobile ?? "",
-    roomNumber: rooms[0]?.room_number ?? "",
-    checkIn: fromEnquiry?.check_in_date ?? "",
+    roomNumber: initialRoomNumber ?? rooms[0]?.room_number ?? "",
+    checkIn: fromEnquiry?.check_in_date ?? (initialRoomNumber ? todayIsoDate() : ""),
     checkOut: fromEnquiry?.check_out_date ?? "",
     adults: fromEnquiry?.adults ?? 2,
     children: fromEnquiry?.children ?? 0,
@@ -67,10 +74,49 @@ export function WalkInBookingModal({
   }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [noCategoryRoomsAvailable, setNoCategoryRoomsAvailable] = useState(false);
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
+
+  useEffect(() => {
+    if (!fromEnquiry?.room_type_id || !fromEnquiry.check_in_date || !fromEnquiry.check_out_date) {
+      return;
+    }
+
+    const candidateRooms = rooms.filter(
+      (room) => room.category_id === fromEnquiry.room_type_id,
+    );
+
+    if (candidateRooms.length === 0) return;
+
+    let isCancelled = false;
+
+    async function findAvailableRoom() {
+      for (const room of candidateRooms) {
+        const result = await checkRoomAvailability(
+          room.room_number,
+          fromEnquiry!.check_in_date,
+          fromEnquiry!.check_out_date,
+        );
+        if (isCancelled) return;
+        if (result.isAvailable) {
+          setForm((prev) => ({ ...prev, roomNumber: room.room_number }));
+          return;
+        }
+      }
+      if (!isCancelled) {
+        setNoCategoryRoomsAvailable(true);
+      }
+    }
+
+    findAvailableRoom();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [fromEnquiry, rooms]);
 
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.room_number === form.roomNumber) ?? null,
@@ -120,6 +166,31 @@ export function WalkInBookingModal({
     return null;
   }, [selectedRoom, form.adults, form.children]);
 
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [isRoomUnavailable, setIsRoomUnavailable] = useState(false);
+
+  useEffect(() => {
+    if (!form.roomNumber || !form.checkIn || !form.checkOut || nights <= 0) {
+      setIsRoomUnavailable(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsCheckingAvailability(true);
+
+    checkRoomAvailability(form.roomNumber, form.checkIn, form.checkOut).then(
+      (result) => {
+        if (isCancelled) return;
+        setIsRoomUnavailable(!result.isAvailable);
+        setIsCheckingAvailability(false);
+      },
+    );
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [form.roomNumber, form.checkIn, form.checkOut, nights]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -140,6 +211,21 @@ export function WalkInBookingModal({
 
     setIsSubmitting(true);
     setSubmitError(null);
+
+    const availability = await checkRoomAvailability(
+      form.roomNumber,
+      form.checkIn,
+      form.checkOut,
+    );
+
+    if (!availability.isAvailable) {
+      setIsSubmitting(false);
+      setIsRoomUnavailable(true);
+      setSubmitError(
+        `Room ${form.roomNumber} is already occupied or booked for these dates.`,
+      );
+      return;
+    }
 
     const { error } = await supabase.from("reservations").insert({
       guest_name: form.guestName,
@@ -163,6 +249,14 @@ export function WalkInBookingModal({
       console.error("Failed to create reservation:", error.message);
       setSubmitError("Could not save this booking. Please try again.");
       return;
+    }
+
+    if (user) {
+      await logAction(
+        user.id,
+        "create_booking",
+        `Booked ${form.guestName} into Room ${form.roomNumber} (${formatCurrency(billing.total)}, ${nights} night${nights === 1 ? "" : "s"})`,
+      );
     }
 
     if (fromEnquiry) {
@@ -209,6 +303,17 @@ export function WalkInBookingModal({
 
         <form onSubmit={handleSubmit} className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-5">
+            {noCategoryRoomsAvailable && (
+              <p
+                className="flex items-start gap-2 rounded-sm border border-amber-400/25 bg-amber-400/10 p-3 text-sm text-amber-300"
+                role="alert"
+              >
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                No {fromEnquiry?.room_type_name ?? "requested"} rooms are free
+                for these dates. Please select an alternative room below.
+              </p>
+            )}
+
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="guestName" className={labelClasses}>
@@ -396,6 +501,17 @@ export function WalkInBookingModal({
               </div>
             </div>
 
+            {isRoomUnavailable && (
+              <p
+                className="flex items-start gap-2 rounded-sm border border-red-400/25 bg-red-400/10 p-3 text-sm text-red-300"
+                role="alert"
+              >
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                Room {form.roomNumber} is already occupied or booked for these
+                dates.
+              </p>
+            )}
+
             {capacityWarning && (
               <p
                 className="flex items-start gap-2 rounded-sm border border-amber-400/25 bg-amber-400/10 p-3 text-sm text-amber-300"
@@ -422,10 +538,19 @@ export function WalkInBookingModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || Boolean(capacityWarning)}
+                disabled={
+                  isSubmitting ||
+                  Boolean(capacityWarning) ||
+                  isRoomUnavailable ||
+                  isCheckingAvailability
+                }
                 className="rounded-sm bg-primary px-6 py-2.5 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSubmitting ? "Saving…" : "Confirm Booking"}
+                {isSubmitting
+                  ? "Saving…"
+                  : isCheckingAvailability
+                    ? "Checking availability…"
+                    : "Confirm Booking"}
               </button>
             </div>
           </div>

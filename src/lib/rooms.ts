@@ -72,3 +72,35 @@ export async function loadPhysicalRooms(): Promise<{
 
   return { data: rooms, error: null };
 }
+
+export async function checkRoomAvailability(
+  roomNumber: string,
+  checkIn: string,
+  checkOut: string,
+  excludeReservationId?: string,
+): Promise<{ isAvailable: boolean; error: string | null }> {
+  if (!supabase) {
+    return { isAvailable: false, error: "Database connection is not configured." };
+  }
+
+  let query = supabase
+    .from("reservations")
+    .select("id")
+    .eq("room_number", roomNumber)
+    .in("status", ["Confirmed", "Checked-In"])
+    .lt("check_in_date", checkOut)
+    .gt("check_out_date", checkIn);
+
+  if (excludeReservationId) {
+    query = query.neq("id", excludeReservationId);
+  }
+
+  const { data, error } = await query.limit(1);
+
+  if (error) {
+    console.error("Failed to check room availability:", error.message);
+    return { isAvailable: false, error: "Could not verify room availability." };
+  }
+
+  return { isAvailable: (data ?? []).length === 0, error: null };
+}

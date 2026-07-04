@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   BookOpen,
+  CalendarDays,
   Grid3x3,
   Inbox,
   LayoutDashboard,
@@ -24,6 +25,11 @@ const ADMIN_NAV_LINKS: AdminNavLink[] = [
   { label: "Enquiries", to: "/admin/enquiries", icon: MailQuestion },
   { label: "Front Desk", to: "/admin/front-desk", icon: Inbox },
   { label: "Live Room Map", to: "/admin/room-map", icon: Grid3x3 },
+  {
+    label: "Availability Calendar",
+    to: "/admin/availability-calendar",
+    icon: CalendarDays,
+  },
   { label: "Master Ledger", to: "/admin/ledger", icon: BookOpen },
   {
     label: "Settings & Audit",

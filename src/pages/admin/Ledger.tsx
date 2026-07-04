@@ -23,9 +23,12 @@ import {
   type PhysicalRoomWithCategory,
 } from "../../lib/rooms";
 import { useSystemContext } from "../../context/SystemContext";
+import { useAuth } from "../../context/AuthContext";
+import { logAction } from "../../lib/audit";
 import { EditLedgerModal } from "./EditLedgerModal";
 import { ReceiptModal } from "./ReceiptModal";
 import type {
+  AuditActionType,
   PaymentStatus,
   Reservation,
   ReservationStatus,
@@ -158,6 +161,7 @@ function ActionsMenu({ anchorEl, onClose, children }: ActionsMenuProps) {
 
 export function Ledger() {
   const { config } = useSystemContext();
+  const { user } = useAuth();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
@@ -233,7 +237,7 @@ export function Ledger() {
   }, []);
 
   async function updateReservationStatus(
-    reservationId: string,
+    reservation: Reservation,
     status: ReservationStatus,
   ) {
     if (!supabase) {
@@ -241,7 +245,7 @@ export function Ledger() {
       return;
     }
 
-    setUpdatingId(reservationId);
+    setUpdatingId(reservation.id);
     setActionError(null);
     setOpenMenuId(null);
     setPendingConfirmation(null);
@@ -251,41 +255,63 @@ export function Ledger() {
     const { error } = await supabase
       .from("reservations")
       .update(isCancelling ? { status, is_cancelled: true } : { status })
-      .eq("id", reservationId);
-
-    setUpdatingId(null);
+      .eq("id", reservation.id);
 
     if (error) {
+      setUpdatingId(null);
       console.error("Failed to update reservation status:", error.message);
       setActionError("Could not update this booking. Please try again.");
       return;
     }
 
+    if (user) {
+      const actionType: AuditActionType =
+        status === "Checked-In"
+          ? "check_in"
+          : status === "Checked-Out"
+            ? "check_out"
+            : "cancel_booking";
+      await logAction(
+        user.id,
+        actionType,
+        `${status} — ${reservation.guest_name ?? "guest"} (Room ${reservation.room_number ?? "—"}, ${formatBookingId(reservation.id)})`,
+      );
+    }
+
+    setUpdatingId(null);
     await loadReservations();
   }
 
-  async function handleRestore(reservationId: string) {
+  async function handleRestore(reservation: Reservation) {
     if (!supabase) {
       setActionError("Database connection is not configured.");
       return;
     }
 
-    setUpdatingId(reservationId);
+    setUpdatingId(reservation.id);
     setActionError(null);
 
     const { error } = await supabase
       .from("reservations")
       .update({ is_cancelled: false, status: "Confirmed" })
-      .eq("id", reservationId);
-
-    setUpdatingId(null);
+      .eq("id", reservation.id);
 
     if (error) {
+      setUpdatingId(null);
       console.error("Failed to restore reservation:", error.message);
       setActionError("Could not restore this booking. Please try again.");
       return;
     }
 
+    if (user) {
+      await logAction(
+        user.id,
+        "restore_booking",
+        `Restored booking for ${reservation.guest_name ?? "guest"} (Room ${reservation.room_number ?? "—"}, ${formatBookingId(reservation.id)})`,
+      );
+    }
+
+    setUpdatingId(null);
     await loadReservations();
   }
 
@@ -608,7 +634,7 @@ export function Ledger() {
                       <button
                         type="button"
                         disabled={updatingId === reservation.id}
-                        onClick={() => handleRestore(reservation.id)}
+                        onClick={() => handleRestore(reservation)}
                         className="flex items-center gap-1.5 rounded-sm border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-white/70 transition-colors duration-300 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <RotateCcw size={13} />
@@ -671,7 +697,7 @@ export function Ledger() {
                                   type="button"
                                   onClick={() =>
                                     updateReservationStatus(
-                                      reservation.id,
+                                      reservation,
                                       pendingConfirmation.action,
                                     )
                                   }
@@ -699,7 +725,7 @@ export function Ledger() {
                                   type="button"
                                   onClick={() =>
                                     updateReservationStatus(
-                                      reservation.id,
+                                      reservation,
                                       "Checked-In",
                                     )
                                   }

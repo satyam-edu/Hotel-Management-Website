@@ -3,6 +3,7 @@ import { IndianRupee } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { loadRoomCategories } from "../../lib/rooms";
+import { logAction } from "../../lib/audit";
 import type { RoomCategory } from "../../types/database";
 
 function formatCurrency(amount: number): string {
@@ -10,7 +11,7 @@ function formatCurrency(amount: number): string {
 }
 
 export function RoomRatesPanel() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const canEdit = role === "master_admin" || role === "head_admin";
 
   const [categories, setCategories] = useState<RoomCategory[]>([]);
@@ -86,14 +87,22 @@ export function RoomRatesPanel() {
       .update({ nightly_rate: nextRate })
       .eq("id", category.id);
 
-    setSavingId(null);
-
     if (error) {
+      setSavingId(null);
       console.error("Failed to update nightly rate:", error.message);
       setActionError("Could not save the new rate. Please try again.");
       return;
     }
 
+    if (user) {
+      await logAction(
+        user.id,
+        "update_rates",
+        `Updated ${category.name} nightly rate from ${formatCurrency(category.nightly_rate)} to ${formatCurrency(nextRate)}`,
+      );
+    }
+
+    setSavingId(null);
     await loadCategories();
   }
 
@@ -103,19 +112,29 @@ export function RoomRatesPanel() {
     setSavingId(category.id);
     setActionError(null);
 
+    const nextUnavailable = !category.is_unavailable;
+
     const { error } = await supabase
       .from("room_categories")
-      .update({ is_unavailable: !category.is_unavailable })
+      .update({ is_unavailable: nextUnavailable })
       .eq("id", category.id);
 
-    setSavingId(null);
-
     if (error) {
+      setSavingId(null);
       console.error("Failed to update availability:", error.message);
       setActionError("Could not update availability. Please try again.");
       return;
     }
 
+    if (user) {
+      await logAction(
+        user.id,
+        "update_availability",
+        `Marked ${category.name} as ${nextUnavailable ? "Unavailable" : "Available"}`,
+      );
+    }
+
+    setSavingId(null);
     await loadCategories();
   }
 

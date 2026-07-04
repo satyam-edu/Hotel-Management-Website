@@ -9,6 +9,7 @@ import { Dashboard } from "./pages/admin/Dashboard";
 import { Enquiries } from "./pages/admin/Enquiries";
 import { FrontDesk } from "./pages/admin/FrontDesk";
 import { RoomMap } from "./pages/admin/RoomMap";
+import { AvailabilityCalendar } from "./pages/admin/AvailabilityCalendar";
 import { Ledger } from "./pages/admin/Ledger";
 import { Settings } from "./pages/admin/Settings";
 
@@ -34,6 +35,10 @@ function App() {
             <Route path="/admin/enquiries" element={<Enquiries />} />
             <Route path="/admin/front-desk" element={<FrontDesk />} />
             <Route path="/admin/room-map" element={<RoomMap />} />
+            <Route
+              path="/admin/availability-calendar"
+              element={<AvailabilityCalendar />}
+            />
             <Route path="/admin/ledger" element={<Ledger />} />
             <Route
               path="/admin/settings"

@@ -89,10 +89,20 @@ export type Reservation = {
   updated_at: string;
 };
 
+export type AuditActionType =
+  | "create_booking"
+  | "edit_ledger"
+  | "check_in"
+  | "check_out"
+  | "cancel_booking"
+  | "restore_booking"
+  | "update_rates"
+  | "update_availability";
+
 export type AuditLog = {
   id: string;
   admin_id: string;
-  action_taken: string;
+  action_type: AuditActionType;
   description: string;
   created_at: string;
 };
@@ -194,7 +204,16 @@ export type Database = {
       audit_logs: TableDefinition<
         AuditLog,
         Omit<AuditLog, "id" | "created_at"> & { id?: string },
-        Record<string, never>
+        Record<string, never>,
+        [
+          {
+            foreignKeyName: "audit_logs_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "staff_roles";
+            referencedColumns: ["id"];
+          },
+        ]
       >;
       staff_roles: TableDefinition<
         StaffRole,
