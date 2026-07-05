@@ -13,6 +13,7 @@ interface SystemContextValue {
   config: SystemConfiguration;
   isLoading: boolean;
   error: string | null;
+  refresh: () => Promise<void>;
 }
 
 const DEFAULT_CONFIG: SystemConfiguration = {
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: SystemConfiguration = {
   tax_rate: 12,
   tax_id: "",
   invoice_terms: "",
+  maintenance_mode: false,
   updated_at: new Date().toISOString(),
 };
 
@@ -77,60 +79,53 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadConfig() {
-      if (!supabase) {
-        applyThemeVariables(DEFAULT_CONFIG);
-        setIsLoading(false);
-        return;
-      }
-
-      const { data, error: fetchError } = await supabase
-        .from("system_configurations")
-        .select("*")
-        .eq("id", 1)
-        .maybeSingle();
-
-      if (!isMounted) return;
-
-      if (fetchError) {
-        // PostgREST returns 401/403-style codes for RLS denials, not a silent
-        // empty result — maybeSingle() only suppresses the "0 rows" 406, so a
-        // real fetchError here means something other than a missing row.
-        console.error(
-          "system_configurations query failed — likely an RLS policy is blocking this read (check the system_configurations_select_anon policy):",
-          fetchError.message,
-        );
-        applyThemeVariables(DEFAULT_CONFIG);
-        setError(fetchError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      if (!data) {
-        console.error(
-          "system_configurations returned zero rows for id=1 — the table has not been seeded. " +
-            "Run the seed migration (supabase/migrations/0013_seed_system_configurations.sql) " +
-            "in the Supabase SQL editor to insert the default config row.",
-        );
-        applyThemeVariables(DEFAULT_CONFIG);
-        setError("Site configuration has not been set up yet.");
-        setIsLoading(false);
-        return;
-      }
-
-      applyThemeVariables(data);
-      setConfig(data);
+  async function loadConfig() {
+    if (!supabase) {
+      applyThemeVariables(DEFAULT_CONFIG);
       setIsLoading(false);
+      return;
     }
 
-    loadConfig();
+    const { data, error: fetchError } = await supabase
+      .from("system_configurations")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
 
-    return () => {
-      isMounted = false;
-    };
+    if (fetchError) {
+      // PostgREST returns 401/403-style codes for RLS denials, not a silent
+      // empty result — maybeSingle() only suppresses the "0 rows" 406, so a
+      // real fetchError here means something other than a missing row.
+      console.error(
+        "system_configurations query failed — likely an RLS policy is blocking this read (check the system_configurations_select_anon policy):",
+        fetchError.message,
+      );
+      applyThemeVariables(DEFAULT_CONFIG);
+      setError(fetchError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!data) {
+      console.error(
+        "system_configurations returned zero rows for id=1 — the table has not been seeded. " +
+          "Run the seed migration (supabase/migrations/0013_seed_system_configurations.sql) " +
+          "in the Supabase SQL editor to insert the default config row.",
+      );
+      applyThemeVariables(DEFAULT_CONFIG);
+      setError("Site configuration has not been set up yet.");
+      setIsLoading(false);
+      return;
+    }
+
+    applyThemeVariables(data);
+    setConfig(data);
+    setError(null);
+    setIsLoading(false);
+  }
+
+  useEffect(() => {
+    loadConfig();
   }, []);
 
   if (isLoading) {
@@ -138,7 +133,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SystemContext.Provider value={{ config, isLoading, error }}>
+    <SystemContext.Provider value={{ config, isLoading, error, refresh: loadConfig }}>
       {children}
     </SystemContext.Provider>
   );
