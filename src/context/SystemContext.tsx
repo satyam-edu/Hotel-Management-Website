@@ -91,13 +91,32 @@ export function SystemProvider({ children }: { children: ReactNode }) {
         .from("system_configurations")
         .select("*")
         .eq("id", 1)
-        .single();
+        .maybeSingle();
 
       if (!isMounted) return;
 
-      if (fetchError || !data) {
+      if (fetchError) {
+        // PostgREST returns 401/403-style codes for RLS denials, not a silent
+        // empty result — maybeSingle() only suppresses the "0 rows" 406, so a
+        // real fetchError here means something other than a missing row.
+        console.error(
+          "system_configurations query failed — likely an RLS policy is blocking this read (check the system_configurations_select_anon policy):",
+          fetchError.message,
+        );
         applyThemeVariables(DEFAULT_CONFIG);
-        setError(fetchError?.message ?? "Failed to load site configuration.");
+        setError(fetchError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!data) {
+        console.error(
+          "system_configurations returned zero rows for id=1 — the table has not been seeded. " +
+            "Run the seed migration (supabase/migrations/0013_seed_system_configurations.sql) " +
+            "in the Supabase SQL editor to insert the default config row.",
+        );
+        applyThemeVariables(DEFAULT_CONFIG);
+        setError("Site configuration has not been set up yet.");
         setIsLoading(false);
         return;
       }
