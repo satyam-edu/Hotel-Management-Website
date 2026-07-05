@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { BriefcaseBusiness, Calendar, CheckCircle2, Users } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
 import { generateEnquiryReference } from "../../lib/enquiries";
@@ -60,7 +60,11 @@ function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-export function BookingFormSection() {
+interface BookingFormSectionProps {
+  selectedRoomId: string | null;
+}
+
+export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) {
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
   const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,19 +73,32 @@ export function BookingFormSection() {
     null,
   );
 
+  const initialSelectedRoomId = useRef(selectedRoomId);
+
   useEffect(() => {
     async function loadCategories() {
       const { data } = await loadRoomCategories({ sellableOnly: true });
       setRoomCategories(data);
       if (data.length > 0) {
+        const initialId = initialSelectedRoomId.current;
+        const preferredId =
+          initialId && data.some((r) => r.id === initialId)
+            ? initialId
+            : data[0].id;
         setForm((prev) =>
-          prev.roomTypeId ? prev : { ...prev, roomTypeId: data[0].id },
+          prev.roomTypeId ? prev : { ...prev, roomTypeId: preferredId },
         );
       }
     }
 
     loadCategories();
   }, []);
+
+  useEffect(() => {
+    if (selectedRoomId && roomCategories.some((r) => r.id === selectedRoomId)) {
+      setForm((prev) => ({ ...prev, roomTypeId: selectedRoomId }));
+    }
+  }, [selectedRoomId, roomCategories]);
 
   function updateField<K extends keyof BookingFormState>(
     field: K,
