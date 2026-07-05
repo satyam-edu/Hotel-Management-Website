@@ -26,6 +26,7 @@ export type SystemConfiguration = {
   tax_rate: number;
   tax_id: string;
   invoice_terms: string;
+  maintenance_mode: boolean;
   updated_at: string;
 };
 
@@ -117,6 +118,19 @@ export type StaffRole = {
   deactivated_at: string | null;
 };
 
+export type SiteContent = {
+  id: number;
+  hero_title: string;
+  hero_subtitle: string;
+  hero_cta: string;
+  about_history: string;
+  about_philosophy: string;
+  rooms_intro: string;
+  gallery_header: string;
+  featured_review: string;
+  updated_at: string;
+};
+
 type TableDefinition<Row, Insert, Update, Relationships = []> = {
   Row: Row;
   Insert: Insert;
@@ -131,6 +145,11 @@ export type Database = {
         SystemConfiguration,
         Partial<Omit<SystemConfiguration, "updated_at">> & { id?: number },
         Partial<Omit<SystemConfiguration, "id">>
+      >;
+      site_content: TableDefinition<
+        SiteContent,
+        Partial<Omit<SiteContent, "updated_at">> & { id?: number },
+        Partial<Omit<SiteContent, "id">>
       >;
       room_categories: TableDefinition<
         RoomCategory,
