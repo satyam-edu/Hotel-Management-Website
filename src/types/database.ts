@@ -97,7 +97,9 @@ export type AuditActionType =
   | "cancel_booking"
   | "restore_booking"
   | "update_rates"
-  | "update_availability";
+  | "update_availability"
+  | "create_staff"
+  | "revoke_staff";
 
 export type AuditLog = {
   id: string;
@@ -112,6 +114,7 @@ export type StaffRole = {
   username: string;
   role: StaffRoleType;
   created_at: string;
+  deactivated_at: string | null;
 };
 
 type TableDefinition<Row, Insert, Update, Relationships = []> = {
