@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { CheckCircle2, ClipboardList, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useSystemContext } from "../../../context/SystemContext";
+import { logConfigDiff } from "../../../lib/auditDiff";
 import { supabase } from "../../../lib/supabase";
 
 const inputClasses =
@@ -19,7 +20,7 @@ interface FormState {
 }
 
 export function BookingRulesTab() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { config, refresh } = useSystemContext();
   const canEdit = role === "master_admin" || role === "head_admin";
 
@@ -68,16 +69,26 @@ export function BookingRulesTab() {
     setSaveError(null);
     setShowSuccess(false);
 
+    const previousValues = {
+      min_booking_age: config.min_booking_age,
+      max_adults_per_room: config.max_adults_per_room,
+      max_children_per_room: config.max_children_per_room,
+      check_in_time: config.check_in_time,
+      check_out_time: config.check_out_time,
+      cancellation_policy: config.cancellation_policy,
+    };
+    const nextValues = {
+      min_booking_age: minBookingAge,
+      max_adults_per_room: maxAdultsPerRoom,
+      max_children_per_room: maxChildrenPerRoom,
+      check_in_time: form.checkInTime,
+      check_out_time: form.checkOutTime,
+      cancellation_policy: form.cancellationPolicy,
+    };
+
     const { error } = await supabase
       .from("system_configurations")
-      .update({
-        min_booking_age: minBookingAge,
-        max_adults_per_room: maxAdultsPerRoom,
-        max_children_per_room: maxChildrenPerRoom,
-        check_in_time: form.checkInTime,
-        check_out_time: form.checkOutTime,
-        cancellation_policy: form.cancellationPolicy,
-      })
+      .update(nextValues)
       .eq("id", 1);
 
     if (error) {
@@ -85,6 +96,25 @@ export function BookingRulesTab() {
       setSaveError("Could not save booking rules. Please try again.");
       setIsSaving(false);
       return;
+    }
+
+    if (user) {
+      // "Shifted minimum booking age baseline from 18 to 21" — numerical
+      // boundary limits get explicit before/after values; times are logged
+      // the same way, and the free-text cancellation policy is logged as a
+      // targeted area reference rather than dumping its full contents.
+      await logConfigDiff(user.id, "update_booking_rules", previousValues, nextValues, {
+        min_booking_age: {
+          label: "minimum booking age baseline",
+          kind: "number",
+          verb: "Shifted",
+        },
+        max_adults_per_room: { label: "max adults per room", kind: "number" },
+        max_children_per_room: { label: "max children per room", kind: "number" },
+        check_in_time: { label: "check-in time", kind: "time" },
+        check_out_time: { label: "check-out time", kind: "time" },
+        cancellation_policy: { label: "Cancellation Policy", kind: "text" },
+      });
     }
 
     await refresh();

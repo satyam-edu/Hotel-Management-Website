@@ -35,6 +35,7 @@ export type RoomCategory = {
   name: string;
   nightly_rate: number;
   amenities: string;
+  description: string;
   cover_photo_url: string | null;
   is_archived: boolean;
   is_unavailable: boolean;
@@ -100,7 +101,19 @@ export type AuditActionType =
   | "update_rates"
   | "update_availability"
   | "create_staff"
-  | "revoke_staff";
+  | "revoke_staff"
+  | "create_category"
+  | "edit_category"
+  | "archive_category"
+  | "restore_category"
+  | "create_room"
+  | "delete_room"
+  | "reassign_room_category"
+  | "update_branding"
+  | "update_booking_rules"
+  | "update_invoice_config"
+  | "update_site_content"
+  | "toggle_maintenance_mode";
 
 export type AuditLog = {
   id: string;

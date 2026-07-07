@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ClipboardList, FileText, Palette, ShieldCheck } from "lucide-react";
 import { BrandingSettingsTab } from "./settings/BrandingSettingsTab";
 import { GlobalContentTab } from "./settings/GlobalContentTab";
@@ -14,8 +14,24 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Palette }[] = [
   { id: "system", label: "System Administration", icon: ShieldCheck },
 ];
 
+const TAB_IDS = TABS.map((tab) => tab.id);
+
+function isSettingsTab(value: string | null): value is SettingsTab {
+  return value !== null && (TAB_IDS as string[]).includes(value);
+}
+
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("branding");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : "branding";
+
+  function setActiveTab(tab: SettingsTab) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tab);
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-8">

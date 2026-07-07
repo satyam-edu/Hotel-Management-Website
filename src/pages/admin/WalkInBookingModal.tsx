@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
-import { checkRoomAvailability } from "../../lib/rooms";
+import { checkRoomAvailability, loadOccupiedRoomNumbers } from "../../lib/rooms";
 import { createVerifiedReservation } from "../../lib/reservationVerification";
 import type { PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { PendingEnquiry } from "../../lib/enquiries";
@@ -162,6 +162,35 @@ export function WalkInBookingModal({
 
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [isRoomUnavailable, setIsRoomUnavailable] = useState(false);
+  const [occupiedRoomNumbers, setOccupiedRoomNumbers] = useState<Set<string>>(new Set());
+
+  // Drives the dropdown's vacant-room filter — a single bulk query per date
+  // change rather than one checkRoomAvailability() call per candidate room.
+  useEffect(() => {
+    if (!form.checkIn || !form.checkOut || nights <= 0) {
+      setOccupiedRoomNumbers(new Set());
+      return;
+    }
+
+    let isCancelled = false;
+
+    loadOccupiedRoomNumbers(form.checkIn, form.checkOut).then((result) => {
+      if (isCancelled) return;
+      setOccupiedRoomNumbers(result.data);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [form.checkIn, form.checkOut, nights]);
+
+  const vacantRooms = useMemo(
+    () =>
+      rooms.filter(
+        (room) => room.room_number === form.roomNumber || !occupiedRoomNumbers.has(room.room_number),
+      ),
+    [rooms, occupiedRoomNumbers, form.roomNumber],
+  );
 
   useEffect(() => {
     if (!form.roomNumber || !form.checkIn || !form.checkOut || nights <= 0) {
@@ -335,7 +364,7 @@ export function WalkInBookingModal({
                   onChange={(e) => updateField("roomNumber", e.target.value)}
                   className={inputClasses}
                 >
-                  {rooms.map((room) => (
+                  {vacantRooms.map((room) => (
                     <option
                       key={room.room_number}
                       value={room.room_number}
@@ -345,6 +374,9 @@ export function WalkInBookingModal({
                     </option>
                   ))}
                 </select>
+                <p className="mt-1.5 text-xs text-white/40">
+                  Showing rooms vacant for the selected dates.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

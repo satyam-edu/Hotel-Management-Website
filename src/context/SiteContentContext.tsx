@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { loadSiteContent } from "../lib/siteContent";
+import { supabase } from "../lib/supabase";
 import type { SiteContent } from "../types/database";
 
 interface SiteContentContextValue {
@@ -51,6 +52,33 @@ export function SiteContentProvider({ children }: { children: ReactNode }) {
     }
 
     load();
+  }, []);
+
+  // Live-syncs Global Content edits (hero copy, about paragraphs, rooms
+  // intro, gallery header, featured review) to every open guest tab
+  // instantly, with no reload — the payload's `new` row is already the full
+  // authoritative row for this singleton table.
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+
+    const channel = client
+      .channel("site_content_live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_content", filter: "id=eq.1" },
+        (payload) => {
+          const nextContent = payload.new as SiteContent;
+          if (!nextContent || Object.keys(nextContent).length === 0) return;
+          setContent(nextContent);
+          setError(null);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
   }, []);
 
   return (

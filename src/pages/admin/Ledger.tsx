@@ -818,6 +818,7 @@ export function Ledger() {
       {editingReservation && (
         <EditLedgerModal
           reservation={editingReservation}
+          rooms={physicalRooms}
           taxRatePercent={config.tax_rate}
           onClose={() => setEditingReservation(null)}
           onSaved={() => {
