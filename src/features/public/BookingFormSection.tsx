@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { BriefcaseBusiness, Calendar, CheckCircle2, Users } from "lucide-react";
+import { AlertTriangle, BriefcaseBusiness, Calendar, CheckCircle2, Info, Users } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
 import { generateEnquiryReference } from "../../lib/enquiries";
 import { loadRoomCategories } from "../../lib/rooms";
+import { calculateRoomsRequired, type ChildDetail, type ChildGender } from "../../lib/roomsCalculator";
 import { supabase } from "../../lib/supabase";
 import { useSystemContext } from "../../context/SystemContext";
 import type { RoomCategory } from "../../types/database";
@@ -36,6 +37,9 @@ interface BookingFormState {
   roomTypeId: string;
   specialRequests: string;
 }
+
+const DEFAULT_CHILD_AGE = 8;
+const DEFAULT_CHILD_GENDER: ChildGender = "male";
 
 const todayIso = todayIsoDate();
 
@@ -77,11 +81,55 @@ export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) 
   const { config } = useSystemContext();
   const cancellationPolicy = getCancellationPolicyLines(config.cancellation_policy);
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
+  const [childDetails, setChildDetails] = useState<ChildDetail[]>(
+    Array.from({ length: INITIAL_STATE.children }, () => ({
+      age: DEFAULT_CHILD_AGE,
+      gender: DEFAULT_CHILD_GENDER,
+    })),
+  );
   const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedReference, setConfirmedReference] = useState<string | null>(
     null,
+  );
+
+  // Adjusting the child count must fully discard data for any removed child
+  // rather than merely hiding it, so raising the count again later never
+  // silently reintroduces stale age/gender values into the calculation.
+  function updateChildCount(count: number) {
+    const safeCount = Math.max(count, 0);
+    updateField("children", safeCount);
+    setChildDetails((prev) => {
+      if (safeCount <= prev.length) {
+        return prev.slice(0, safeCount);
+      }
+      const additions = Array.from({ length: safeCount - prev.length }, () => ({
+        age: DEFAULT_CHILD_AGE,
+        gender: DEFAULT_CHILD_GENDER,
+      }));
+      return [...prev, ...additions];
+    });
+  }
+
+  function updateChildDetail<K extends keyof ChildDetail>(
+    index: number,
+    field: K,
+    value: ChildDetail[K],
+  ) {
+    setChildDetails((prev) =>
+      prev.map((child, i) => (i === index ? { ...child, [field]: value } : child)),
+    );
+  }
+
+  const roomsCalculation = useMemo(
+    () =>
+      calculateRoomsRequired(form.adults, childDetails, {
+        minBookingAge: config.min_booking_age,
+        maxAdultsPerRoom: config.max_adults_per_room,
+        maxChildrenPerRoom: config.max_children_per_room,
+      }),
+    [form.adults, childDetails, config.min_booking_age, config.max_adults_per_room, config.max_children_per_room],
   );
 
   const initialSelectedRoomId = useRef(selectedRoomId);
@@ -133,6 +181,23 @@ export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) 
 
     if (!supabase) {
       setSubmitError("Could not submit your enquiry. Please try again.");
+      return;
+    }
+
+    // Hard stops, not soft warnings — per Blueprint Section 1.8, these block
+    // submission outright rather than letting the issue surface only once
+    // the guest has already travelled to the property.
+    if (roomsCalculation.belowMinimumAge.length > 0) {
+      setSubmitError(
+        `This booking includes a child below our minimum age of ${config.min_booking_age} for travel without a firm accompaniment guarantee. Please call the front desk directly to arrange this stay.`,
+      );
+      return;
+    }
+
+    if (roomsCalculation.requiresGenderSeparation) {
+      setSubmitError(
+        "This booking requires special arrangements for unaccompanied minors of different genders. Please call the front desk directly to complete this booking.",
+      );
       return;
     }
 
@@ -314,11 +379,91 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
                     type="number"
                     min={0}
                     value={form.children}
-                    onChange={(e) => updateField("children", Number(e.target.value))}
+                    onChange={(e) => updateChildCount(Number(e.target.value))}
                     className={inputClasses}
                   />
                 </div>
               </div>
+
+              {childDetails.length > 0 && (
+                <div className="sm:col-span-2 space-y-3">
+                  <p className={labelClasses}>Child Details</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {childDetails.map((child, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.03] p-3"
+                      >
+                        <span className="text-xs text-white/50">
+                          Child {index + 1}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={17}
+                          aria-label={`Child ${index + 1} age`}
+                          value={child.age}
+                          onChange={(e) =>
+                            updateChildDetail(index, "age", Number(e.target.value))
+                          }
+                          className={`${inputClasses} w-16 px-2 py-1.5`}
+                        />
+                        <select
+                          aria-label={`Child ${index + 1} gender`}
+                          value={child.gender}
+                          onChange={(e) =>
+                            updateChildDetail(index, "gender", e.target.value as ChildGender)
+                          }
+                          className={`${inputClasses} flex-1 px-2 py-1.5`}
+                        >
+                          <option value="male" className="bg-background-dark">
+                            Male
+                          </option>
+                          <option value="female" className="bg-background-dark">
+                            Female
+                          </option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="sm:col-span-2 flex items-start gap-2 rounded-sm border border-primary/25 bg-primary/[0.06] p-3 text-xs leading-relaxed text-white/70">
+                <Info size={14} className="mt-0.5 shrink-0 text-primary" />
+                Your party will require{" "}
+                <span className="font-semibold text-white">
+                  {roomsCalculation.roomsRequired} room
+                  {roomsCalculation.roomsRequired === 1 ? "" : "s"}
+                </span>{" "}
+                based on standard occupancy limits. Our front desk will confirm
+                exact room assignments.
+              </div>
+
+              {roomsCalculation.belowMinimumAge.length > 0 && (
+                <p
+                  className="sm:col-span-2 flex items-start gap-2 rounded-sm border border-red-400/25 bg-red-400/10 p-3 text-xs leading-relaxed text-red-300"
+                  role="alert"
+                >
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  This booking includes a child below our minimum age of{" "}
+                  {config.min_booking_age} for travel without a firm
+                  accompaniment guarantee. Please call the front desk directly
+                  to arrange this stay.
+                </p>
+              )}
+
+              {roomsCalculation.requiresGenderSeparation && (
+                <p
+                  className="sm:col-span-2 flex items-start gap-2 rounded-sm border border-amber-400/25 bg-amber-400/10 p-3 text-xs leading-relaxed text-amber-300"
+                  role="alert"
+                >
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  This booking requires special arrangements for unaccompanied
+                  minors of different genders. Please call the front desk
+                  directly to complete this booking.
+                </p>
+              )}
 
               <div>
                 <label htmlFor="roomType" className={labelClasses}>
@@ -372,7 +517,11 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
             <>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={
+                  isSubmitting ||
+                  roomsCalculation.belowMinimumAge.length > 0 ||
+                  roomsCalculation.requiresGenderSeparation
+                }
                 className="w-full rounded-sm bg-primary py-4 text-xs font-bold uppercase tracking-[0.15em] text-background-dark transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? "Submitting…" : "Submit Booking Enquiry"}
