@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { supabase } from "../../lib/supabase";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
-import { logAction } from "../../lib/audit";
-import { useAuth } from "../../context/AuthContext";
+import { updateVerifiedReservation } from "../../lib/reservationVerification";
 import type { PaymentStatus, Reservation } from "../../types/database";
 
 interface EditLedgerModalProps {
@@ -26,7 +24,6 @@ export function EditLedgerModal({
   onClose,
   onSaved,
 }: EditLedgerModalProps) {
-  const { user } = useAuth();
   const nights = countNights(reservation.check_in_date, reservation.check_out_date);
   const impliedNightlyRate =
     nights > 0
@@ -74,11 +71,6 @@ export function EditLedgerModal({
   }
 
   async function handleSave() {
-    if (!supabase) {
-      setSaveError("Database connection is not configured.");
-      return;
-    }
-
     if (parsedDiscount < 0 || parsedDiscount > subtotal) {
       setSaveError("Discount must be between 0 and the subtotal.");
       return;
@@ -87,34 +79,28 @@ export function EditLedgerModal({
     setIsSaving(true);
     setSaveError(null);
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        discount_amount: parsedDiscount,
-        tax_amount: billing.taxAmount,
-        total_amount: billing.total,
-        payment_status: reconciledStatus,
-        amount_paid: amountPaid,
-        internal_notes: internalNotes,
-      })
-      .eq("id", reservation.id);
+    // `billing`/`amountPaid`/`reconciledStatus` above are a preview computed
+    // from the reservation's *implied* rate — the Edge Function re-reads the
+    // room category's actual current nightly rate and tax rate and is what
+    // actually gets written.
+    const result = await updateVerifiedReservation({
+      reservation_id: reservation.id,
+      discount_amount: parsedDiscount,
+      amount_received: amountPaid,
+      payment_status_override: paymentStatus,
+      internal_notes: internalNotes,
+      client_total_amount: billing.total,
+      client_tax_amount: billing.taxAmount,
+    });
 
-    if (error) {
-      setIsSaving(false);
-      console.error("Failed to update reservation:", error.message);
+    setIsSaving(false);
+
+    if (result.errorMessage) {
+      console.error("Failed to update reservation:", result.errorMessage);
       setSaveError("Could not save these changes. Please try again.");
       return;
     }
 
-    if (user) {
-      await logAction(
-        user.id,
-        "edit_ledger",
-        `Edited booking for ${reservation.guest_name ?? "guest"} (Room ${reservation.room_number ?? "—"}): discount ${formatCurrency(parsedDiscount)}, payment ${reconciledStatus}`,
-      );
-    }
-
-    setIsSaving(false);
     onSaved();
   }
 
