@@ -1,5 +1,6 @@
 import { useState } from "react";
 import heroFallback from "../../assets/hero.png";
+import { useSiteContent } from "../../context/SiteContentContext";
 
 interface GalleryImage {
   id: string;
@@ -23,6 +24,7 @@ const CATEGORIES = ["All", "Rooms", "Banquets", "Lawn"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 export function GallerySection() {
+  const { content } = useSiteContent();
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
   return (
@@ -32,7 +34,7 @@ export function GallerySection() {
           Gallery
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
-          A Closer Look at the Property
+          {content.gallery_header}
         </h2>
       </div>
 

@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import { useSiteContent } from "../../context/SiteContentContext";
 
 interface GuestReview {
   id: string;
@@ -32,6 +33,8 @@ const DUMMY_REVIEWS: GuestReview[] = [
 ];
 
 export function ReviewsSection() {
+  const { content } = useSiteContent();
+
   return (
     <section id="reviews" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
       <div className="mx-auto max-w-2xl text-center">
@@ -41,6 +44,11 @@ export function ReviewsSection() {
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
           What Our Guests Say
         </h2>
+        {content.featured_review && (
+          <blockquote className="mt-6 text-base italic leading-relaxed text-white/70">
+            &ldquo;{content.featured_review}&rdquo;
+          </blockquote>
+        )}
       </div>
 
       <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
