@@ -9,12 +9,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { supabase } from "../../lib/supabase";
 import { todayIsoDate } from "../../lib/date";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
 import { checkRoomAvailability } from "../../lib/rooms";
-import { logAction } from "../../lib/audit";
-import { useAuth } from "../../context/AuthContext";
+import { createVerifiedReservation } from "../../lib/reservationVerification";
 import type { PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { PendingEnquiry } from "../../lib/enquiries";
 import type { PaymentStatus } from "../../types/database";
@@ -58,7 +56,6 @@ export function WalkInBookingModal({
   onClose,
   onSaved,
 }: WalkInBookingModalProps) {
-  const { user } = useAuth();
   const [form, setForm] = useState<FormState>(() => ({
     guestName: fromEnquiry?.full_name ?? "",
     phone: fromEnquiry?.mobile ?? "",
@@ -137,9 +134,6 @@ export function WalkInBookingModal({
 
   const balanceDue = Math.max(billing.total - amountPaid, 0);
 
-  const reconciledStatus: PaymentStatus =
-    amountPaid >= billing.total ? "paid" : amountPaid <= 0 ? "unpaid" : "partial";
-
   function handleAmountReceivedChange(value: string) {
     updateField("amountReceived", value);
     const parsed = Math.min(Math.max(Number(value) || 0, 0), billing.total);
@@ -194,11 +188,6 @@ export function WalkInBookingModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!supabase) {
-      setSubmitError("Database connection is not configured.");
-      return;
-    }
-
     if (capacityWarning) {
       setSubmitError(capacityWarning);
       return;
@@ -227,53 +216,40 @@ export function WalkInBookingModal({
       return;
     }
 
-    const { error } = await supabase.from("reservations").insert({
-      guest_name: form.guestName,
-      guest_phone: form.phone,
+    // The client-computed `billing`/`amountPaid`/`reconciledStatus` above are
+    // preview-only — the Edge Function independently re-derives the
+    // authoritative rate and tax and is what actually gets written.
+    const result = await createVerifiedReservation({
       room_number: form.roomNumber,
       check_in_date: form.checkIn,
       check_out_date: form.checkOut,
       adults: form.adults,
       children: form.children,
-      total_amount: billing.total,
-      tax_amount: billing.taxAmount,
+      guest_name: form.guestName,
+      guest_phone: form.phone,
       discount_amount: parsedDiscount,
-      amount_paid: amountPaid,
-      payment_status: reconciledStatus,
+      amount_received: amountPaid,
+      payment_status_override: form.paymentStatus,
       internal_notes: form.internalNotes,
-      status: "Confirmed",
+      from_enquiry_id: fromEnquiry?.id,
+      client_total_amount: billing.total,
+      client_tax_amount: billing.taxAmount,
     });
 
-    if (error) {
-      setIsSubmitting(false);
-      console.error("Failed to create reservation:", error.message);
+    setIsSubmitting(false);
+
+    if (result.errorCode === "room_unavailable") {
+      setIsRoomUnavailable(true);
+      setSubmitError(result.errorMessage);
+      return;
+    }
+
+    if (result.errorMessage) {
+      console.error("Failed to create reservation:", result.errorMessage);
       setSubmitError("Could not save this booking. Please try again.");
       return;
     }
 
-    if (user) {
-      await logAction(
-        user.id,
-        "create_booking",
-        `Booked ${form.guestName} into Room ${form.roomNumber} (${formatCurrency(billing.total)}, ${nights} night${nights === 1 ? "" : "s"})`,
-      );
-    }
-
-    if (fromEnquiry) {
-      const { error: enquiryError } = await supabase
-        .from("enquiries")
-        .update({ status: "confirmed" })
-        .eq("id", fromEnquiry.id);
-
-      if (enquiryError) {
-        console.error(
-          "Booking saved, but failed to mark enquiry as confirmed:",
-          enquiryError.message,
-        );
-      }
-    }
-
-    setIsSubmitting(false);
     onSaved();
   }
 
