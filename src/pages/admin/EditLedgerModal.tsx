@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
+import { loadOccupiedRoomNumbers } from "../../lib/rooms";
 import { updateVerifiedReservation } from "../../lib/reservationVerification";
+import type { PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { PaymentStatus, Reservation } from "../../types/database";
 
 interface EditLedgerModalProps {
   reservation: Reservation;
+  rooms: PhysicalRoomWithCategory[];
   taxRatePercent: number;
   onClose: () => void;
   onSaved: () => void;
@@ -20,6 +23,7 @@ const labelClasses = "mb-1.5 block text-xs tracking-wide text-white/50";
 
 export function EditLedgerModal({
   reservation,
+  rooms,
   taxRatePercent,
   onClose,
   onSaved,
@@ -41,8 +45,52 @@ export function EditLedgerModal({
     String(reservation.amount_paid),
   );
   const [internalNotes, setInternalNotes] = useState(reservation.internal_notes);
+  const [roomNumber, setRoomNumber] = useState(reservation.room_number ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const currentRoom = useMemo(
+    () => rooms.find((room) => room.room_number === reservation.room_number) ?? null,
+    [rooms, reservation.room_number],
+  );
+
+  // Reassignment stays within the same category — a guest booked into a
+  // Deluxe shouldn't silently end up in a Suite with a different rate simply
+  // because the front desk needed to move them for a maintenance issue.
+  const sameCategoryRooms = useMemo(
+    () =>
+      currentRoom
+        ? rooms.filter((room) => room.category_id === currentRoom.category_id)
+        : rooms,
+    [rooms, currentRoom],
+  );
+
+  const [occupiedRoomNumbers, setOccupiedRoomNumbers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    loadOccupiedRoomNumbers(
+      reservation.check_in_date,
+      reservation.check_out_date,
+      reservation.id,
+    ).then((result) => {
+      if (isCancelled) return;
+      setOccupiedRoomNumbers(result.data);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [reservation.id, reservation.check_in_date, reservation.check_out_date]);
+
+  const availableRooms = useMemo(
+    () =>
+      sameCategoryRooms.filter(
+        (room) => room.room_number === roomNumber || !occupiedRoomNumbers.has(room.room_number),
+      ),
+    [sameCategoryRooms, occupiedRoomNumbers, roomNumber],
+  );
 
   const parsedDiscount = Number(discountAmount) || 0;
   const subtotal = impliedNightlyRate * nights;
@@ -83,8 +131,11 @@ export function EditLedgerModal({
     // from the reservation's *implied* rate — the Edge Function re-reads the
     // room category's actual current nightly rate and tax rate and is what
     // actually gets written.
+    const isReassigning = roomNumber !== (reservation.room_number ?? "");
+
     const result = await updateVerifiedReservation({
       reservation_id: reservation.id,
+      new_room_number: isReassigning ? roomNumber : undefined,
       discount_amount: parsedDiscount,
       amount_received: amountPaid,
       payment_status_override: paymentStatus,
@@ -94,6 +145,11 @@ export function EditLedgerModal({
     });
 
     setIsSaving(false);
+
+    if (result.errorCode === "room_unavailable") {
+      setSaveError(result.errorMessage);
+      return;
+    }
 
     if (result.errorMessage) {
       console.error("Failed to update reservation:", result.errorMessage);
@@ -127,6 +183,32 @@ export function EditLedgerModal({
         </div>
 
         <div className="mt-6 space-y-5">
+          <div>
+            <label htmlFor="reassignRoom" className={labelClasses}>
+              Reassign Room
+            </label>
+            <select
+              id="reassignRoom"
+              value={roomNumber}
+              onChange={(e) => setRoomNumber(e.target.value)}
+              className={inputClasses}
+            >
+              {availableRooms.map((room) => (
+                <option
+                  key={room.room_number}
+                  value={room.room_number}
+                  className="bg-background-dark"
+                >
+                  {room.room_number} — {room.category_name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-white/40">
+              Showing {currentRoom?.category_name ?? "same-category"} rooms
+              vacant for these dates.
+            </p>
+          </div>
+
           <div>
             <label htmlFor="discountAmount" className={labelClasses}>
               Discount (₹)

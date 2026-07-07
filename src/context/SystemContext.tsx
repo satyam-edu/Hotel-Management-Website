@@ -128,6 +128,34 @@ export function SystemProvider({ children }: { children: ReactNode }) {
     loadConfig();
   }, []);
 
+  // Live-syncs branding/booking-rule/maintenance-mode changes made from the
+  // admin Customizer to every open guest tab instantly, with no reload —
+  // the payload's `new` row is already the full authoritative row for this
+  // singleton table, so it's applied directly rather than re-fetching.
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+
+    const channel = client
+      .channel("system_configurations_live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "system_configurations", filter: "id=eq.1" },
+        (payload) => {
+          const nextConfig = payload.new as SystemConfiguration;
+          if (!nextConfig || Object.keys(nextConfig).length === 0) return;
+          applyThemeVariables(nextConfig);
+          setConfig(nextConfig);
+          setError(null);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
+
   if (isLoading) {
     return <div className="sync-loading" aria-hidden="true" />;
   }

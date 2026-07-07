@@ -20,6 +20,18 @@ const ACTION_TYPE_LABELS: Record<AuditActionType, string> = {
   update_availability: "Update Availability",
   create_staff: "Create Staff",
   revoke_staff: "Revoke Staff",
+  create_category: "Create Category",
+  edit_category: "Edit Category",
+  archive_category: "Archive Category",
+  restore_category: "Restore Category",
+  create_room: "Create Room",
+  delete_room: "Delete Room",
+  reassign_room_category: "Reassign Room",
+  update_branding: "Update Branding",
+  update_booking_rules: "Update Booking Rules",
+  update_invoice_config: "Update Invoice Config",
+  update_site_content: "Update Site Content",
+  toggle_maintenance_mode: "Maintenance Mode Toggle",
 };
 
 function formatTimestamp(value: string): string {

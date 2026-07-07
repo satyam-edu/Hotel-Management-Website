@@ -36,7 +36,14 @@ export function Navbar() {
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
 
         if (visible[0]) {
-          setActiveHref(`#${visible[0].target.id}`);
+          const href = `#${visible[0].target.id}`;
+          setActiveHref(href);
+          // Keep the URL in sync so a reload lands back on the same
+          // section — replaceState avoids stacking a history entry per
+          // scroll tick, unlike setting location.hash directly.
+          if (window.location.hash !== href) {
+            window.history.replaceState(null, "", href);
+          }
         }
       },
       { rootMargin: "-45% 0px -50% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
@@ -44,6 +51,47 @@ export function Navbar() {
 
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
+  }, []);
+
+  // Cold-load restoration: if the guest reloads on a deep link (e.g.
+  // #rooms), scroll there once sections exist in the DOM. scroll-padding-top
+  // (src/index.css) already accounts for the fixed header's height, and the
+  // global scroll-behavior: smooth makes this a gentle transition rather
+  // than an instant jump.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+
+    const target = document.querySelector(hash);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveHref(hash);
+    }
+  }, []);
+
+  // Fallback for production viewports where the footer (#contact) is too
+  // short to ever cross the IntersectionObserver's narrow rootMargin band —
+  // once the guest has scrolled to the literal bottom of the page, force the
+  // highlight to Contact regardless of what the observer reported, since
+  // there's nothing further below it to be "more visible" than.
+  useEffect(() => {
+    function handleScroll() {
+      const isAtBottom =
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 50;
+      if (isAtBottom) {
+        setActiveHref("#contact");
+        if (window.location.hash !== "#contact") {
+          window.history.replaceState(null, "", "#contact");
+        }
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   useEffect(() => {

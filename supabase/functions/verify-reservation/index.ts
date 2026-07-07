@@ -27,7 +27,8 @@ type PaymentStatus = "unpaid" | "partial" | "paid";
 interface VerifyReservationRequest {
   action: "create" | "update";
   reservation_id?: string; // required for "update"
-  room_number: string;
+  room_number: string; // required for "create"
+  new_room_number?: string; // optional for "update" — manual reassignment
   check_in_date: string;
   check_out_date: string;
   adults?: number;
@@ -375,8 +376,9 @@ async function handleUpdate(
     return errorResponse("not_found", "Reservation not found.", 404);
   }
 
-  const roomNumber = existing.room_number as string | null;
-  if (!roomNumber) {
+  const currentRoomNumber = existing.room_number as string | null;
+  const targetRoomNumber = body.new_room_number ?? currentRoomNumber;
+  if (!targetRoomNumber) {
     return errorResponse(
       "bad_request",
       "This reservation has no assigned room and cannot be re-verified.",
@@ -389,7 +391,35 @@ async function handleUpdate(
     return errorResponse("bad_request", "Reservation has an invalid date range.", 400);
   }
 
-  const { nightlyRate, error: rateError } = await loadAuthoritativeRate(adminClient, roomNumber);
+  const isReassigning = body.new_room_number && body.new_room_number !== currentRoomNumber;
+
+  if (isReassigning) {
+    const { data: overlapping, error: overlapError } = await adminClient
+      .from("reservations")
+      .select("id")
+      .eq("room_number", targetRoomNumber)
+      .in("status", ["Confirmed", "Checked-In"])
+      .lt("check_in_date", existing.check_out_date)
+      .gt("check_out_date", existing.check_in_date)
+      .neq("id", reservation_id)
+      .limit(1);
+
+    if (overlapError) {
+      return errorResponse("db_error", overlapError.message, 500);
+    }
+    if (overlapping && overlapping.length > 0) {
+      return errorResponse(
+        "room_unavailable",
+        `Room ${targetRoomNumber} is already occupied or booked for these dates.`,
+        409,
+      );
+    }
+  }
+
+  const { nightlyRate, error: rateError } = await loadAuthoritativeRate(
+    adminClient,
+    targetRoomNumber,
+  );
   if (rateError || nightlyRate === null) {
     return errorResponse("not_found", rateError ?? "Could not resolve room rate.", 404);
   }
@@ -415,11 +445,18 @@ async function handleUpdate(
   );
   const reconciledStatus = reconcilePaymentStatus(amountPaid, billing.total);
 
-  logVerification("update", roomNumber, billing, body.client_total_amount, body.client_tax_amount);
+  logVerification(
+    "update",
+    targetRoomNumber,
+    billing,
+    body.client_total_amount,
+    body.client_tax_amount,
+  );
 
   const { data: updated, error: updateError } = await adminClient
     .from("reservations")
     .update({
+      room_number: targetRoomNumber,
       discount_amount: discountAmount,
       tax_amount: billing.taxAmount,
       total_amount: billing.total,
@@ -435,10 +472,14 @@ async function handleUpdate(
     return errorResponse("db_error", updateError.message, 500);
   }
 
+  const reassignmentNote = isReassigning
+    ? ` Reassigned from Room ${currentRoomNumber} to Room ${targetRoomNumber}.`
+    : "";
+
   await adminClient.from("audit_logs").insert({
     admin_id: callerId,
     action_type: "edit_ledger",
-    description: `Edited booking for ${existing.guest_name ?? "guest"} (Room ${roomNumber}): server-verified total ₹${billing.total.toFixed(0)}, payment ${reconciledStatus}.`,
+    description: `Edited booking for ${existing.guest_name ?? "guest"} (Room ${targetRoomNumber}): server-verified total ₹${billing.total.toFixed(0)}, payment ${reconciledStatus}.${reassignmentNote}`,
   });
 
   return jsonResponse({

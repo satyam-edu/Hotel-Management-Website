@@ -9,7 +9,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useSystemContext } from "../../../context/SystemContext";
+import { logAction } from "../../../lib/audit";
+import { logConfigDiff } from "../../../lib/auditDiff";
 import { supabase } from "../../../lib/supabase";
+import { PhysicalRoomMapper } from "./PhysicalRoomMapper";
+import { RoomCategoryManager } from "./RoomCategoryManager";
 
 const inputClasses =
   "w-full rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary disabled:opacity-50";
@@ -29,6 +33,7 @@ interface ThemeFormState {
 }
 
 function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
+  const { user } = useAuth();
   const { config, refresh } = useSystemContext();
 
   const [form, setForm] = useState<ThemeFormState>({
@@ -48,6 +53,8 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
     setSaveError(null);
     setShowSuccess(false);
 
+    const previousMaintenanceMode = config.maintenance_mode;
+
     const { error } = await supabase
       .from("system_configurations")
       .update({
@@ -62,6 +69,33 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
       setSaveError("Could not save theme settings. Please try again.");
       setIsSaving(false);
       return;
+    }
+
+    if (user) {
+      // Explicit hex-value logging for token changes, kept distinct from the
+      // kill switch, which is logged as a state transition rather than an
+      // "old value → new value" pair.
+      if (config.primary_gold !== form.primaryGold) {
+        await logAction(
+          user.id,
+          "update_branding",
+          `Updated primary accent color from ${config.primary_gold} to ${form.primaryGold}.`,
+        );
+      }
+      if (config.bg_charcoal !== form.bgCharcoal) {
+        await logAction(
+          user.id,
+          "update_branding",
+          `Updated primary background color from ${config.bg_charcoal} to ${form.bgCharcoal}.`,
+        );
+      }
+      if (previousMaintenanceMode !== form.maintenanceMode) {
+        await logAction(
+          user.id,
+          "toggle_maintenance_mode",
+          `System Action: Triggered Maintenance Mode Kill Switch to ${form.maintenanceMode ? "ON" : "OFF"}.`,
+        );
+      }
     }
 
     await refresh();
@@ -80,9 +114,8 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
       </div>
       <p className="mt-2 text-sm text-white/60">
         The accent and background colors cascade through every derived shade
-        across the site instantly. Hero/about image uploads, the room
-        category manager, and the physical room mapper will live here in a
-        future pass.
+        across the site instantly. Hero/about image uploads will live here in
+        a future pass.
       </p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -206,7 +239,7 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
 }
 
 export function BrandingSettingsTab() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { config, refresh } = useSystemContext();
   const canEdit = role === "master_admin" || role === "head_admin";
 
@@ -233,13 +266,20 @@ export function BrandingSettingsTab() {
     setSaveError(null);
     setShowSuccess(false);
 
+    const previousValues = {
+      tax_rate: config.tax_rate,
+      tax_id: config.tax_id,
+      invoice_terms: config.invoice_terms,
+    };
+    const nextValues = {
+      tax_rate: taxRate,
+      tax_id: form.taxId,
+      invoice_terms: form.invoiceTerms,
+    };
+
     const { error } = await supabase
       .from("system_configurations")
-      .update({
-        tax_rate: taxRate,
-        tax_id: form.taxId,
-        invoice_terms: form.invoiceTerms,
-      })
+      .update(nextValues)
       .eq("id", 1);
 
     if (error) {
@@ -247,6 +287,14 @@ export function BrandingSettingsTab() {
       setSaveError("Could not save invoice configuration. Please try again.");
       setIsSaving(false);
       return;
+    }
+
+    if (user) {
+      await logConfigDiff(user.id, "update_invoice_config", previousValues, nextValues, {
+        tax_rate: { label: "Tax Rate", kind: "number" },
+        tax_id: { label: "Tax ID", kind: "text" },
+        invoice_terms: { label: "Invoice Terms", kind: "text" },
+      });
     }
 
     await refresh();
@@ -258,6 +306,13 @@ export function BrandingSettingsTab() {
   return (
     <div className="space-y-6">
       <ThemeAndMaintenanceForm canEdit={canEdit} />
+
+      {canEdit && (
+        <>
+          <RoomCategoryManager />
+          <PhysicalRoomMapper />
+        </>
+      )}
 
       {!canEdit ? (
         <div className="glass-panel flex items-center gap-3 rounded-xl p-6 text-sm text-white/60">

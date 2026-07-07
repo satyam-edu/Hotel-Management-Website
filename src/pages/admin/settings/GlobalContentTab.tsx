@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2, FileText, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
+import { logAction } from "../../../lib/audit";
 import { loadSiteContent } from "../../../lib/siteContent";
 import { supabase } from "../../../lib/supabase";
 import type { SiteContent } from "../../../types/database";
@@ -11,6 +12,17 @@ const inputClasses =
 const labelClasses = "mb-1.5 block text-xs tracking-wide text-white/50";
 
 type FormState = Omit<SiteContent, "id" | "updated_at">;
+
+// Grouped by guest-facing section rather than logged per-field, so a save
+// touching all three Hero inputs writes one "Updated Hero section" entry
+// instead of three near-duplicate lines — matches the Blueprint's "targeted
+// area reference" convention for text-block content changes.
+const CONTENT_SECTIONS: { label: string; fields: (keyof FormState)[] }[] = [
+  { label: "Hero", fields: ["hero_title", "hero_subtitle", "hero_cta"] },
+  { label: "About Us", fields: ["about_history", "about_philosophy"] },
+  { label: "Rooms & Gallery", fields: ["rooms_intro", "gallery_header"] },
+  { label: "Reviews", fields: ["featured_review"] },
+];
 
 const EMPTY_FORM: FormState = {
   hero_title: "",
@@ -24,10 +36,11 @@ const EMPTY_FORM: FormState = {
 };
 
 export function GlobalContentTab() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const canEdit = role === "master_admin" || role === "head_admin";
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [loadedContent, setLoadedContent] = useState<FormState>(EMPTY_FORM);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +53,7 @@ export function GlobalContentTab() {
     if (result.data) {
       const { id: _id, updated_at: _updatedAt, ...rest } = result.data;
       setForm(rest);
+      setLoadedContent(rest);
     }
     setLoadError(result.error);
     setIsLoading(false);
@@ -71,6 +85,21 @@ export function GlobalContentTab() {
       setSaveError("Could not save site content. Please try again.");
       setIsSaving(false);
       return;
+    }
+
+    if (user) {
+      for (const section of CONTENT_SECTIONS) {
+        const sectionChanged = section.fields.some(
+          (field) => loadedContent[field] !== form[field],
+        );
+        if (sectionChanged) {
+          await logAction(
+            user.id,
+            "update_site_content",
+            `Updated ${section.label} section text content fields.`,
+          );
+        }
+      }
     }
 
     await reload();

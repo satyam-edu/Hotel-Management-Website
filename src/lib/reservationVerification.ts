@@ -86,6 +86,7 @@ export async function createVerifiedReservation(payload: CreateReservationPayloa
 
 export interface UpdateReservationPayload {
   reservation_id: string;
+  new_room_number?: string;
   discount_amount: number;
   amount_received: number;
   payment_status_override?: PaymentStatus;
