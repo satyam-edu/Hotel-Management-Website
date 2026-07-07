@@ -15,3 +15,13 @@ export function toIsoDate(year: number, monthIndex: number, day: number): string
 export function daysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
+
+export function formatTime12h(time24h: string): string {
+  const [hoursStr, minutesStr = "00"] = time24h.split(":");
+  const hours = Number(hoursStr);
+  if (Number.isNaN(hours)) return time24h;
+
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  return `${displayHours}:${minutesStr} ${period}`;
+}

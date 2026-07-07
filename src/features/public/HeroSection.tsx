@@ -1,8 +1,10 @@
 import { useSystemContext } from "../../context/SystemContext";
+import { useSiteContent } from "../../context/SiteContentContext";
 import heroFallback from "../../assets/hero.png";
 
 export function HeroSection() {
   const { config } = useSystemContext();
+  const { content } = useSiteContent();
   const backgroundUrl = config.hero_bg_url || heroFallback;
 
   return (
@@ -24,11 +26,10 @@ export function HeroSection() {
           Padrauna, Kushinagar
         </p>
         <h1 className="font-display mt-4 text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-          Hotel Kamala Inn Grand
+          {content.hero_title}
         </h1>
         <p className="mt-5 max-w-xl text-base text-white/80 sm:text-lg">
-          Where every stay, celebration, and gathering is treated with the
-          warmth of home and the polish of a landmark address.
+          {content.hero_subtitle}
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -36,7 +37,7 @@ export function HeroSection() {
             href="#rooms"
             className="rounded-sm bg-primary px-10 py-4 text-xs uppercase tracking-widest text-background-dark transition-opacity duration-300 hover:opacity-90"
           >
-            Book Your Stay
+            {content.hero_cta}
           </a>
           <a
             href="#rooms"

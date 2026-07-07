@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import heroFallback from "../../assets/hero.png";
 import { loadRoomCategories } from "../../lib/rooms";
 import { supabase } from "../../lib/supabase";
+import { useSiteContent } from "../../context/SiteContentContext";
 import type { RoomCategory } from "../../types/database";
 
 interface RoomsSectionProps {
@@ -17,6 +18,7 @@ function parseAmenities(raw: string): string[] {
 }
 
 export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
+  const { content } = useSiteContent();
   const [categories, setCategories] = useState<RoomCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -62,8 +64,7 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
           A Room for Every Kind of Stay
         </h2>
         <p className="mt-4 text-base leading-relaxed text-white/70">
-          From a quiet overnight stop to an extended family visit, every
-          category is kept spotless, comfortable, and ready.
+          {content.rooms_intro}
         </p>
       </div>
 

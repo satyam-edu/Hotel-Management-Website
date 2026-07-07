@@ -1,8 +1,10 @@
 import { useSystemContext } from "../../context/SystemContext";
+import { useSiteContent } from "../../context/SiteContentContext";
 import heroFallback from "../../assets/hero.png";
 
 export function AboutSection() {
   const { config } = useSystemContext();
+  const { content } = useSiteContent();
   const aboutPhoto = config.about_photo_url || heroFallback;
 
   return (
@@ -17,20 +19,11 @@ export function AboutSection() {
           </h2>
 
           <p className="mt-6 text-base leading-relaxed text-white/75">
-            Set along the NH-28 bypass in Padrauna, Hotel Kamala Inn Grand has
-            grown into one of the district's most trusted addresses for
-            travellers, families, and celebrations alike. What began as a
-            modest wayside stop has become a full service property known for
-            its banquet halls, event lawns, and genuinely warm service a
-            reputation built one stay, one wedding, one gathering at a time.
+            {content.about_history}
           </p>
 
           <p className="mt-4 text-base leading-relaxed text-white/75">
-            Our philosophy is simple: every guest should feel looked after,
-            not processed. From a family arriving late off the highway to a
-            wedding party hosting three hundred guests, the same attention to
-            comfort, cleanliness, and courtesy carries through every corner
-            of the property.
+            {content.about_philosophy}
           </p>
         </div>
 

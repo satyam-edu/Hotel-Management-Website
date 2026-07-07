@@ -4,17 +4,26 @@ import { todayIsoDate } from "../../lib/date";
 import { generateEnquiryReference } from "../../lib/enquiries";
 import { loadRoomCategories } from "../../lib/rooms";
 import { supabase } from "../../lib/supabase";
+import { useSystemContext } from "../../context/SystemContext";
 import type { RoomCategory } from "../../types/database";
 
 const WHATSAPP_NUMBER = "919956050766";
 const GST_RATE = 0.12;
 
-const CANCELLATION_POLICY = [
+const DEFAULT_CANCELLATION_POLICY = [
   "Free cancellation up to 48 hours before check-in",
   "50% charge for cancellations within 24–48 hours",
   "No refund for cancellations within 24 hours",
   "No-show treated as full stay charge",
 ];
+
+function getCancellationPolicyLines(policy: string): string[] {
+  const lines = policy
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length > 0 ? lines : DEFAULT_CANCELLATION_POLICY;
+}
 
 interface BookingFormState {
   fullName: string;
@@ -65,6 +74,8 @@ interface BookingFormSectionProps {
 }
 
 export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) {
+  const { config } = useSystemContext();
+  const cancellationPolicy = getCancellationPolicyLines(config.cancellation_policy);
   const [form, setForm] = useState<BookingFormState>(INITIAL_STATE);
   const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -437,7 +448,7 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
               Cancellation Policy
             </p>
             <ul className="mt-3 space-y-1.5">
-              {CANCELLATION_POLICY.map((rule) => (
+              {cancellationPolicy.map((rule) => (
                 <li key={rule} className="text-xs leading-relaxed text-white/60">
                   &bull; {rule}
                 </li>
