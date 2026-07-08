@@ -497,18 +497,24 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
                 <label htmlFor="roomType" className={labelClasses}>
                   Room Type
                 </label>
-                <select
-                  id="roomType"
-                  value={form.roomTypeId}
-                  onChange={(e) => updateField("roomTypeId", e.target.value)}
-                  className={inputClasses}
-                >
-                  {roomCategories.map((room) => (
-                    <option key={room.id} value={room.id} className="bg-background-dark">
-                      {room.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="roomType"
+                    value={form.roomTypeId}
+                    onChange={(e) => updateField("roomTypeId", e.target.value)}
+                    className={`${inputClasses} appearance-none pr-9`}
+                  >
+                    {roomCategories.map((room) => (
+                      <option key={room.id} value={room.id} className="bg-background-dark">
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+                  />
+                </div>
               </div>
 
               <div className="sm:col-span-2">
