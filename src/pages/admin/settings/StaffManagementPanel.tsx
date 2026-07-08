@@ -18,7 +18,7 @@ const ROLE_BADGE_STYLES: Record<StaffRoleType, string> = {
 const ROLE_LABELS: Record<StaffRoleType, string> = {
   master_admin: "Master Admin",
   head_admin: "Head Admin",
-  sub_admin: "Sub Admin",
+  sub_admin: "Staff (Sub Admin)",
 };
 
 const inputClasses =
