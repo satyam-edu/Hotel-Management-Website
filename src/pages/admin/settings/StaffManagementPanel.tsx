@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Mail, ShieldAlert, Trash2, User } from "lucide-react";
+import { ChevronDown, Mail, ShieldAlert, Trash2, User } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import {
   createStaff,
@@ -197,18 +197,24 @@ export function StaffManagementPanel() {
             <label htmlFor="staffRole" className={labelClasses}>
               Role
             </label>
-            <select
-              id="staffRole"
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as StaffRoleType }))}
-              className={inputClasses}
-            >
-              {allowedRoles.map((r) => (
-                <option key={r} value={r} className="bg-background-dark">
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="staffRole"
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as StaffRoleType }))}
+                className={`${inputClasses} appearance-none pr-9`}
+              >
+                {allowedRoles.map((r) => (
+                  <option key={r} value={r} className="bg-background-dark">
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+              />
+            </div>
           </div>
 
           {fieldError && fieldError.field === null && (

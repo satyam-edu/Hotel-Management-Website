@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import logo from "../../assets/logo.png";
@@ -21,6 +21,18 @@ const NAV_LINKS: NavLink[] = [
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeHref, setActiveHref] = useState("#home");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const linkRefs = useRef<{ [key: string]: HTMLAnchorElement | null }>({});
+
+  useEffect(() => {
+    function handleScroll() {
+      setIsScrolled(window.scrollY > 20);
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const sections = NAV_LINKS.map((link) =>
@@ -134,9 +146,29 @@ export function Navbar() {
     };
   }, [isMenuOpen]);
 
+  // Measures the active link's own box so the indicator can glide to it
+  // rather than snapping instantly — re-measured on resize too, since a
+  // link's offsetLeft/offsetWidth shift whenever the row reflows.
+  useEffect(() => {
+    function measure() {
+      const activeEl = linkRefs.current[activeHref];
+      if (activeEl) {
+        setIndicatorStyle({ left: activeEl.offsetLeft, width: activeEl.offsetWidth });
+      }
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeHref]);
+
   return (
-    <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)]">
-      <nav className="glass-panel mx-auto flex h-full max-w-7xl items-center justify-between rounded-none border-x-0 border-t-0 px-6">
+    <header
+      className={`fixed left-0 top-0 z-50 w-full border-b border-white/[0.08] bg-white/[0.04] backdrop-blur-[20px] transition-shadow duration-300 ${
+        isScrolled ? "shadow-[0_4px_24px_rgba(0,0,0,0.18)]" : ""
+      }`}
+    >
+      <nav className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6 md:px-8">
         <a href="#home" className="flex items-center gap-2.5">
           <img
             src={logo}
@@ -148,12 +180,15 @@ export function Navbar() {
           </span>
         </a>
 
-        <ul className="hidden items-center gap-7 md:flex">
+        <ul className="relative hidden items-center gap-7 md:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <a
+                ref={(el) => {
+                  linkRefs.current[link.href] = el;
+                }}
                 href={link.href}
-                className={`text-xs font-semibold uppercase tracking-widest transition-colors duration-300 ${
+                className={`pb-1 text-xs font-semibold uppercase tracking-widest transition-colors duration-300 ${
                   activeHref === link.href
                     ? "text-primary"
                     : "text-white/70 hover:text-white"
@@ -163,6 +198,11 @@ export function Navbar() {
               </a>
             </li>
           ))}
+
+          <div
+            className="pointer-events-none absolute bottom-0 h-[2px] translate-y-[4px] bg-[#c9a94c] transition-all duration-300 ease-in-out"
+            style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }}
+          />
         </ul>
 
         <Link

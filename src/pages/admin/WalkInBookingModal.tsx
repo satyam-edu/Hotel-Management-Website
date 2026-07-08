@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BedDouble,
   Calendar,
+  ChevronDown,
   IndianRupee,
   Phone,
   User,
@@ -358,22 +359,28 @@ export function WalkInBookingModal({
                   <BedDouble size={14} />
                   Room
                 </label>
-                <select
-                  id="roomNumber"
-                  value={form.roomNumber}
-                  onChange={(e) => updateField("roomNumber", e.target.value)}
-                  className={inputClasses}
-                >
-                  {vacantRooms.map((room) => (
-                    <option
-                      key={room.room_number}
-                      value={room.room_number}
-                      className="bg-background-dark"
-                    >
-                      {room.room_number} — {room.category_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="roomNumber"
+                    value={form.roomNumber}
+                    onChange={(e) => updateField("roomNumber", e.target.value)}
+                    className={`${inputClasses} appearance-none pr-9`}
+                  >
+                    {vacantRooms.map((room) => (
+                      <option
+                        key={room.room_number}
+                        value={room.room_number}
+                        className="bg-background-dark"
+                      >
+                        {room.room_number} — {room.category_name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+                  />
+                </div>
                 <p className="mt-1.5 text-xs text-white/40">
                   Showing rooms vacant for the selected dates.
                 </p>
@@ -478,20 +485,26 @@ export function WalkInBookingModal({
                 <label htmlFor="paymentStatus" className={labelClasses}>
                   Payment Status
                 </label>
-                <select
-                  id="paymentStatus"
-                  value={form.paymentStatus}
-                  onChange={(e) =>
-                    handlePaymentStatusChange(e.target.value as PaymentStatus)
-                  }
-                  className={inputClasses}
-                >
-                  {PAYMENT_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status} className="bg-background-dark">
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="paymentStatus"
+                    value={form.paymentStatus}
+                    onChange={(e) =>
+                      handlePaymentStatusChange(e.target.value as PaymentStatus)
+                    }
+                    className={`${inputClasses} appearance-none pr-9`}
+                  >
+                    {PAYMENT_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status} className="bg-background-dark">
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+                  />
+                </div>
               </div>
 
               <div className="sm:col-span-2">

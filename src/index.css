@@ -20,7 +20,7 @@
   --glass-border-alpha: 0.08;
   --glass-blur: 20px;
 
-  --header-height: 4.5rem;
+  --header-height: 5rem;
 }
 
 @theme inline {

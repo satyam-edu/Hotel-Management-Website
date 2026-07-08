@@ -531,19 +531,25 @@ function RoomMappingCard({ room, categories, onReassign, onDelete }: RoomMapping
 
       <div className="mt-auto pt-4">
         <div className="flex items-center gap-2">
-          <select
-            aria-label={`Category for Room ${room.room_number}`}
-            disabled={isSaving}
-            value={draftCategoryId}
-            onChange={(e) => setDraftCategoryId(e.target.value)}
-            className={`${inputClasses} border-white/15 py-2 text-xs`}
-          >
-            {categories.map((category) => (
-              <option key={category.id} value={category.id} className="bg-background-dark">
-                {category.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative flex-1">
+            <select
+              aria-label={`Category for Room ${room.room_number}`}
+              disabled={isSaving}
+              value={draftCategoryId}
+              onChange={(e) => setDraftCategoryId(e.target.value)}
+              className={`${inputClasses} appearance-none pr-9`}
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id} className="bg-background-dark">
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={14}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+            />
+          </div>
 
           {isDirty && (
             <button

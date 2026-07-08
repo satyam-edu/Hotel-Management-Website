@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Archive,
   Calendar,
+  ChevronDown,
   Download,
   FileText,
   LogIn,
@@ -467,39 +468,51 @@ export function Ledger() {
         </div>
 
         {view === "active" && (
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as "All" | ReservationStatus)
+              }
+              className="w-full appearance-none rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 pr-9 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
+            >
+              {STATUS_FILTERS.map((status) => (
+                <option key={status} value={status} className="bg-background-dark">
+                  {status === "All" ? "All Statuses" : status}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={14}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+            />
+          </div>
+        )}
+
+        <div className="relative">
           <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as "All" | ReservationStatus)
-            }
-            className="rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
+            value={roomTypeFilter}
+            onChange={(e) => setRoomTypeFilter(e.target.value)}
+            className="w-full appearance-none rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 pr-9 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
           >
-            {STATUS_FILTERS.map((status) => (
-              <option key={status} value={status} className="bg-background-dark">
-                {status === "All" ? "All Statuses" : status}
+            <option value="All" className="bg-background-dark">
+              All Room Types
+            </option>
+            {roomCategories.map((category) => (
+              <option
+                key={category.id}
+                value={category.name}
+                className="bg-background-dark"
+              >
+                {category.name}
               </option>
             ))}
           </select>
-        )}
-
-        <select
-          value={roomTypeFilter}
-          onChange={(e) => setRoomTypeFilter(e.target.value)}
-          className="rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
-        >
-          <option value="All" className="bg-background-dark">
-            All Room Types
-          </option>
-          {roomCategories.map((category) => (
-            <option
-              key={category.id}
-              value={category.name}
-              className="bg-background-dark"
-            >
-              {category.name}
-            </option>
-          ))}
-        </select>
+          <ChevronDown
+            size={14}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1">

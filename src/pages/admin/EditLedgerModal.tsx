@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
 import { loadOccupiedRoomNumbers } from "../../lib/rooms";
 import { updateVerifiedReservation } from "../../lib/reservationVerification";
@@ -187,22 +187,28 @@ export function EditLedgerModal({
             <label htmlFor="reassignRoom" className={labelClasses}>
               Reassign Room
             </label>
-            <select
-              id="reassignRoom"
-              value={roomNumber}
-              onChange={(e) => setRoomNumber(e.target.value)}
-              className={inputClasses}
-            >
-              {availableRooms.map((room) => (
-                <option
-                  key={room.room_number}
-                  value={room.room_number}
-                  className="bg-background-dark"
-                >
-                  {room.room_number} — {room.category_name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="reassignRoom"
+                value={roomNumber}
+                onChange={(e) => setRoomNumber(e.target.value)}
+                className={`${inputClasses} appearance-none pr-9`}
+              >
+                {availableRooms.map((room) => (
+                  <option
+                    key={room.room_number}
+                    value={room.room_number}
+                    className="bg-background-dark"
+                  >
+                    {room.room_number} — {room.category_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+              />
+            </div>
             <p className="mt-1.5 text-xs text-white/40">
               Showing {currentRoom?.category_name ?? "same-category"} rooms
               vacant for these dates.
@@ -243,20 +249,26 @@ export function EditLedgerModal({
             <label htmlFor="paymentStatus" className={labelClasses}>
               Payment Status
             </label>
-            <select
-              id="paymentStatus"
-              value={paymentStatus}
-              onChange={(e) =>
-                handlePaymentStatusChange(e.target.value as PaymentStatus)
-              }
-              className={inputClasses}
-            >
-              {PAYMENT_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status} className="bg-background-dark">
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="paymentStatus"
+                value={paymentStatus}
+                onChange={(e) =>
+                  handlePaymentStatusChange(e.target.value as PaymentStatus)
+                }
+                className={`${inputClasses} appearance-none pr-9`}
+              >
+                {PAYMENT_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status} className="bg-background-dark">
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+              />
+            </div>
             {paymentStatus !== reconciledStatus && (
               <p className="mt-1.5 text-xs text-amber-300">
                 Will save as{" "}
