@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import {
+  Bath,
+  Car,
+  Coffee,
+  Sparkles,
+  Tv,
+  Wifi,
+  Wind,
+  type LucideIcon,
+} from "lucide-react";
 import heroFallback from "../../assets/hero.png";
 import { loadRoomCategories } from "../../lib/rooms";
 import { supabase } from "../../lib/supabase";
@@ -15,6 +24,20 @@ function parseAmenities(raw: string): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+// Amenities are free-text (admin-typed), not a fixed enum, so this maps
+// common keywords to an icon and falls back to a generic sparkle rather
+// than silently dropping an amenity the admin phrased differently.
+function amenityIcon(label: string): LucideIcon {
+  const value = label.toLowerCase();
+  if (value.includes("wi-fi") || value.includes("wifi")) return Wifi;
+  if (value.includes("coffee") || value.includes("mini bar") || value.includes("minibar")) return Coffee;
+  if (value.includes("tv") || value.includes("television")) return Tv;
+  if (value.includes("air condition") || value.includes(" ac") || value.startsWith("ac")) return Wind;
+  if (value.includes("bath")) return Bath;
+  if (value.includes("parking") || value.includes("car")) return Car;
+  return Sparkles;
 }
 
 export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
@@ -91,51 +114,75 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
       )}
 
       {!isLoading && !loadError && categories.length > 0 && (
-        <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((room) => (
-            <div
-              key={room.id}
-              className="glass-panel flex flex-col overflow-hidden rounded-xl"
-            >
-              <div className="relative h-52 w-full overflow-hidden">
-                <img
-                  src={room.cover_photo_url || heroFallback}
-                  alt={room.name}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute right-4 top-4 rounded-sm bg-primary px-3 py-1 text-sm font-semibold text-background-dark">
-                  ₹{room.nightly_rate.toLocaleString("en-IN")} / night
+        <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
+          {categories.map((room) => {
+            const amenities = parseAmenities(room.amenities);
+
+            return (
+              <div
+                key={room.id}
+                className="group flex flex-col overflow-hidden border border-slate-800"
+              >
+                <div className="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl">
+                  <img
+                    src={room.cover_photo_url || heroFallback}
+                    alt={room.name}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background-dark to-transparent opacity-80" />
+
+                  <div className="absolute left-4 top-4 rounded bg-[#c9a94c]/90 px-3 py-1 text-xs font-bold tracking-wide text-slate-950">
+                    {room.is_unavailable ? "Waitlist" : "Available"}
+                  </div>
+
+                  <div className="absolute bottom-5 left-6">
+                    <span className="font-display text-2xl text-primary">
+                      ₹{room.nightly_rate.toLocaleString("en-IN")}
+                    </span>
+                    <span className="ml-1 text-sm font-light text-white/70">
+                      /night
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col p-8">
+                  <h3 className="font-display mb-4 text-2xl text-white">
+                    {room.name}
+                  </h3>
+                  <p className="mb-8 flex-1 text-sm font-light leading-relaxed text-white/60">
+                    {room.description}
+                  </p>
+
+                  {amenities.length > 0 && (
+                    <div className="mb-8 flex flex-wrap gap-4">
+                      {amenities.map((amenity) => {
+                        const Icon = amenityIcon(amenity);
+                        return (
+                          <div
+                            key={amenity}
+                            title={amenity}
+                            className="text-white/40 transition-colors group-hover:text-primary"
+                          >
+                            <Icon size={18} strokeWidth={1.5} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <a
+                    href="#booking"
+                    onClick={() => onSelectRoom(room.id)}
+                    className="group/btn relative w-full overflow-hidden border border-slate-700 py-3 text-center text-xs font-semibold tracking-widest text-white transition-all duration-300 hover:text-slate-950"
+                  >
+                    <span className="relative z-10">RESERVE NOW</span>
+                    <div className="absolute inset-0 -translate-x-full bg-primary transition-transform duration-500 ease-out group-hover/btn:translate-x-0" />
+                  </a>
                 </div>
               </div>
-
-              <div className="flex flex-1 flex-col p-6">
-                <h3 className="font-display text-xl font-semibold text-white">
-                  {room.name}
-                </h3>
-
-                <ul className="mt-4 flex-1 space-y-2">
-                  {parseAmenities(room.amenities).map((amenity) => (
-                    <li
-                      key={amenity}
-                      className="flex items-center gap-2 text-sm text-white/70"
-                    >
-                      <Check size={16} className="shrink-0 text-primary" />
-                      {amenity}
-                    </li>
-                  ))}
-                </ul>
-
-                <a
-                  href="#booking"
-                  onClick={() => onSelectRoom(room.id)}
-                  className="mt-6 rounded-sm bg-primary py-2.5 text-center text-xs font-semibold uppercase tracking-widest text-background-dark transition-opacity duration-300 hover:opacity-90"
-                >
-                  Book Now
-                </a>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

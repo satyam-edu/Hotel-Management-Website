@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   Grid3x3,
+  Home,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -54,15 +55,15 @@ export function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 w-64 border-r border-white/10 bg-background-dark">
-        <div className="flex h-[var(--header-height)] items-center gap-2.5 border-b border-white/10 px-6">
+      <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-white/10 bg-background-dark">
+        <div className="flex h-[var(--header-height)] shrink-0 items-center gap-2.5 border-b border-white/10 px-6">
           <img src={logo} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <span className="font-display text-lg font-semibold text-primary">
             Kamala Inn Grand
           </span>
         </div>
 
-        <nav className="flex flex-col gap-1 p-4">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
           {visibleLinks.map((link) => (
             <NavLink
               key={link.to}
@@ -80,10 +81,28 @@ export function AdminLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="shrink-0 space-y-1.5 border-t border-white/10 p-4">
+          <a
+            href="/"
+            className="flex w-full items-center gap-3 rounded-sm px-4 py-2.5 text-sm font-medium text-white/60 transition-colors duration-300 hover:bg-white/5 hover:text-white"
+          >
+            <Home size={18} className="shrink-0" strokeWidth={1.75} />
+            Guest Portal
+          </a>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-sm px-4 py-2.5 text-sm font-medium text-red-400 transition-colors duration-300 hover:bg-red-400/10 hover:text-red-300"
+          >
+            <LogOut size={18} className="shrink-0" strokeWidth={1.75} />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       <div className="flex flex-1 flex-col pl-64">
-        <header className="flex h-[var(--header-height)] items-center justify-between border-b border-white/10 bg-background-dark px-8">
+        <header className="flex h-[var(--header-height)] items-center border-b border-white/10 bg-background-dark px-8">
           <p className="text-sm text-white/50">
             Signed in as{" "}
             <span className="font-semibold text-white">
@@ -93,15 +112,6 @@ export function AdminLayout() {
               <span className="text-white/40"> &middot; {user.email}</span>
             )}
           </p>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-sm border border-white/15 px-4 py-2 text-xs uppercase tracking-widest text-white/60 transition-colors duration-300 hover:bg-white/5 hover:text-white/90"
-          >
-            <LogOut size={14} />
-            Logout
-          </button>
         </header>
 
         <main className="flex-1 p-8">
