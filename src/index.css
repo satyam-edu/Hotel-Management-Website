@@ -86,6 +86,49 @@ h3,
   background-color: var(--color-background);
 }
 
+@keyframes gallery-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gallery-cross-fade {
+  animation: gallery-fade-in 500ms ease-in-out forwards;
+}
+
+@keyframes lightbox-image-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lightbox-image-in {
+  animation: lightbox-image-in 300ms ease-out forwards;
+}
+
+@keyframes lightbox-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.lightbox-backdrop-in {
+  animation: lightbox-backdrop-in 300ms ease-out forwards;
+}
+
 @media print {
   body * {
     visibility: hidden;

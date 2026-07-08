@@ -113,7 +113,13 @@ export type AuditActionType =
   | "update_booking_rules"
   | "update_invoice_config"
   | "update_site_content"
-  | "toggle_maintenance_mode";
+  | "toggle_maintenance_mode"
+  | "upload_asset"
+  | "upload_gallery_image"
+  | "archive_gallery_image"
+  | "restore_gallery_image"
+  | "delete_gallery_image"
+  | "update_gallery_image_folder";
 
 export type AuditLog = {
   id: string;
@@ -142,6 +148,15 @@ export type SiteContent = {
   gallery_header: string;
   featured_review: string;
   updated_at: string;
+};
+
+export type GalleryImage = {
+  id: string;
+  folder_tag: string;
+  image_url: string;
+  alt_text: string;
+  is_archived: boolean;
+  created_at: string;
 };
 
 type TableDefinition<Row, Insert, Update, Relationships = []> = {
@@ -254,6 +269,11 @@ export type Database = {
         StaffRole,
         Omit<StaffRole, "created_at">,
         Partial<Omit<StaffRole, "id" | "created_at">>
+      >;
+      gallery_images: TableDefinition<
+        GalleryImage,
+        Omit<GalleryImage, "id" | "created_at"> & { id?: string },
+        Partial<Omit<GalleryImage, "id" | "created_at">>
       >;
     };
     Views: Record<string, never>;
