@@ -54,19 +54,52 @@ export function Navbar() {
   }, []);
 
   // Cold-load restoration: if the guest reloads on a deep link (e.g.
-  // #rooms), scroll there once sections exist in the DOM. scroll-padding-top
-  // (src/index.css) already accounts for the fixed header's height, and the
-  // global scroll-behavior: smooth makes this a gentle transition rather
-  // than an instant jump.
+  // #contact), scroll there once the page has actually finished growing to
+  // its final height. RoomsSection and GallerySection both fetch their data
+  // independently after mount and insert real content once it arrives —
+  // scrolling immediately on mount would land on the right element before
+  // those later sections push #contact further down the page, causing the
+  // exact "scrolled to Reviews instead of Contact" drift this guards
+  // against. A ResizeObserver on <body> re-scrolls on every height change
+  // and only stops once the height has been quiet for one debounce window,
+  // which naturally waits out however long those fetches take instead of
+  // guessing a fixed delay. scroll-padding-top (src/index.css) already
+  // accounts for the fixed header's height, and the global
+  // scroll-behavior: smooth makes each correction a gentle transition
+  // rather than a jarring re-jump.
   useEffect(() => {
     const hash = window.location.hash;
     if (!hash) return;
 
-    const target = document.querySelector(hash);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      setActiveHref(hash);
+    let settleTimeout: ReturnType<typeof setTimeout> | null = null;
+    let hasSettled = false;
+
+    function scrollToHash() {
+      const target = document.querySelector(hash);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        setActiveHref(hash);
+      }
     }
+
+    const observer = new ResizeObserver(() => {
+      if (hasSettled) return;
+
+      scrollToHash();
+
+      if (settleTimeout) clearTimeout(settleTimeout);
+      settleTimeout = setTimeout(() => {
+        hasSettled = true;
+        observer.disconnect();
+      }, 400);
+    });
+
+    observer.observe(document.body);
+
+    return () => {
+      if (settleTimeout) clearTimeout(settleTimeout);
+      observer.disconnect();
+    };
   }, []);
 
   // Fallback for production viewports where the footer (#contact) is too

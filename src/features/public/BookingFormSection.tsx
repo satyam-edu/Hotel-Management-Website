@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, BriefcaseBusiness, Calendar, CheckCircle2, Info, Users } from "lucide-react";
+import { AlertTriangle, BriefcaseBusiness, Calendar, CheckCircle2, ChevronDown, Info, Users } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
 import { generateEnquiryReference } from "../../lib/enquiries";
 import { loadRoomCategories } from "../../lib/rooms";
@@ -392,55 +392,83 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
                     {childDetails.map((child, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 rounded-sm border border-white/10 bg-white/[0.03] p-3"
+                        className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
                       >
-                        <span className="text-xs text-white/50">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
                           Child {index + 1}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={17}
-                          aria-label={`Child ${index + 1} age`}
-                          value={child.age}
-                          onChange={(e) =>
-                            updateChildDetail(index, "age", Number(e.target.value))
-                          }
-                          className={`${inputClasses} w-16 px-2 py-1.5`}
-                        />
-                        <select
-                          aria-label={`Child ${index + 1} gender`}
-                          value={child.gender}
-                          onChange={(e) =>
-                            updateChildDetail(index, "gender", e.target.value as ChildGender)
-                          }
-                          className={`${inputClasses} flex-1 px-2 py-1.5`}
-                        >
-                          <option value="male" className="bg-background-dark">
-                            Male
-                          </option>
-                          <option value="female" className="bg-background-dark">
-                            Female
-                          </option>
-                        </select>
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              htmlFor={`child-${index}-age`}
+                              className="mb-1.5 block text-[11px] text-white/40"
+                            >
+                              Age
+                            </label>
+                            <input
+                              id={`child-${index}-age`}
+                              type="number"
+                              min={0}
+                              max={17}
+                              aria-label={`Child ${index + 1} age`}
+                              value={child.age}
+                              onChange={(e) =>
+                                updateChildDetail(index, "age", Number(e.target.value))
+                              }
+                              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor={`child-${index}-gender`}
+                              className="mb-1.5 block text-[11px] text-white/40"
+                            >
+                              Select Gender
+                            </label>
+                            <div className="relative">
+                              <select
+                                id={`child-${index}-gender`}
+                                aria-label={`Child ${index + 1} gender`}
+                                value={child.gender}
+                                onChange={(e) =>
+                                  updateChildDetail(index, "gender", e.target.value as ChildGender)
+                                }
+                                className="w-full appearance-none rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-primary"
+                              >
+                                <option value="male" className="bg-slate-900 text-slate-200">
+                                  Male
+                                </option>
+                                <option value="female" className="bg-slate-900 text-slate-200">
+                                  Female
+                                </option>
+                              </select>
+                              <ChevronDown
+                                size={14}
+                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="sm:col-span-2 flex items-start gap-2 rounded-sm border border-primary/25 bg-primary/[0.06] p-3 text-xs leading-relaxed text-white/70">
-                <Info size={14} className="mt-0.5 shrink-0 text-primary" />
-                Your party will require{" "}
-                <span className="font-semibold text-white">
-                  {roomsCalculation.roomsRequired} room
-                  {roomsCalculation.roomsRequired === 1 ? "" : "s"}
-                </span>{" "}
-                based on standard occupancy limits. Our front desk will confirm
-                exact room assignments.
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-300">
+                <Info size={14} className="shrink-0 text-primary" />
+                <span>
+                  Based on your guest selection, we recommend{" "}
+                  <span className="font-semibold text-white">
+                    {roomsCalculation.roomsRequired}{" "}
+                    {roomsCalculation.roomsRequired === 1 ? "room" : "rooms"}
+                  </span>
+                  . Your exact room number will be finalized at the front desk
+                  during check-in.
+                </span>
               </div>
 
-              {roomsCalculation.belowMinimumAge.length > 0 && (
+              {form.adults === 0 && roomsCalculation.belowMinimumAge.length > 0 && (
                 <p
                   className="sm:col-span-2 flex items-start gap-2 rounded-sm border border-red-400/25 bg-red-400/10 p-3 text-xs leading-relaxed text-red-300"
                   role="alert"
