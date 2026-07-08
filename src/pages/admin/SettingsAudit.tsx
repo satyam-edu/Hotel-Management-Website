@@ -32,6 +32,12 @@ const ACTION_TYPE_LABELS: Record<AuditActionType, string> = {
   update_invoice_config: "Update Invoice Config",
   update_site_content: "Update Site Content",
   toggle_maintenance_mode: "Maintenance Mode Toggle",
+  upload_asset: "Upload Asset",
+  upload_gallery_image: "Upload Gallery Image",
+  archive_gallery_image: "Archive Gallery Image",
+  restore_gallery_image: "Restore Gallery Image",
+  delete_gallery_image: "Delete Gallery Image",
+  update_gallery_image_folder: "Reassign Gallery Folder",
 };
 
 function formatTimestamp(value: string): string {

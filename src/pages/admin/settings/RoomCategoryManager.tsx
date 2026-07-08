@@ -9,6 +9,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
+import { ImageDropzone } from "../../../components/ui/ImageDropzone";
 import { useAuth } from "../../../context/AuthContext";
 import { logAction } from "../../../lib/audit";
 import {
@@ -33,6 +34,7 @@ const EMPTY_FORM: RoomCategoryFormInput = {
   description: "",
   max_adults: 2,
   max_children: 2,
+  cover_photo_url: null,
 };
 
 function parseAmenityTags(raw: string): string[] {
@@ -147,6 +149,16 @@ function CategoryForm({ initial, submitLabel, onCancel, onSubmit }: CategoryForm
             value={form.max_children}
             onChange={(e) => updateField("max_children", Number(e.target.value))}
             className={inputClasses}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <ImageDropzone
+            folder="rooms"
+            currentUrl={form.cover_photo_url}
+            label="Cover Photograph"
+            disabled={isSaving}
+            onUploaded={(url) => updateField("cover_photo_url", url)}
           />
         </div>
 
@@ -419,6 +431,7 @@ export function RoomCategoryManager() {
                   description: category.description,
                   max_adults: category.max_adults,
                   max_children: category.max_children,
+                  cover_photo_url: category.cover_photo_url,
                 }}
                 submitLabel="Save Changes"
                 onCancel={() => setEditingId(null)}

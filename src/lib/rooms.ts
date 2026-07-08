@@ -153,6 +153,7 @@ export interface RoomCategoryFormInput {
   description: string;
   max_adults: number;
   max_children: number;
+  cover_photo_url: string | null;
 }
 
 export async function createRoomCategory(
@@ -166,7 +167,6 @@ export async function createRoomCategory(
     .from("room_categories")
     .insert({
       ...input,
-      cover_photo_url: null,
       is_archived: false,
       is_unavailable: false,
     })

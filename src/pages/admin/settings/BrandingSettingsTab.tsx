@@ -7,11 +7,13 @@ import {
   Receipt,
   ShieldAlert,
 } from "lucide-react";
+import { ImageDropzone } from "../../../components/ui/ImageDropzone";
 import { useAuth } from "../../../context/AuthContext";
 import { useSystemContext } from "../../../context/SystemContext";
 import { logAction } from "../../../lib/audit";
 import { logConfigDiff } from "../../../lib/auditDiff";
 import { supabase } from "../../../lib/supabase";
+import { GalleryManager } from "./GalleryManager";
 import { PhysicalRoomMapper } from "./PhysicalRoomMapper";
 import { RoomCategoryManager } from "./RoomCategoryManager";
 
@@ -44,6 +46,37 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function saveUploadedAsset(
+    update: { hero_bg_url: string } | { about_photo_url: string },
+    label: string,
+    file: File,
+  ) {
+    if (!supabase) return;
+    setUploadError(null);
+
+    const { error } = await supabase
+      .from("system_configurations")
+      .update(update)
+      .eq("id", 1);
+
+    if (error) {
+      console.error(`Failed to save ${label}:`, error.message);
+      setUploadError(`Could not save the uploaded ${label.toLowerCase()}. Please try again.`);
+      return;
+    }
+
+    if (user) {
+      await logAction(
+        user.id,
+        "upload_asset",
+        `Uploaded new ${label.toLowerCase()} photograph: ${file.name}.`,
+      );
+    }
+
+    await refresh();
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -114,9 +147,36 @@ function ThemeAndMaintenanceForm({ canEdit }: { canEdit: boolean }) {
       </div>
       <p className="mt-2 text-sm text-white/60">
         The accent and background colors cascade through every derived shade
-        across the site instantly. Hero/about image uploads will live here in
-        a future pass.
+        across the site instantly. Hero and About photographs upload directly
+        and apply to the live site as soon as they finish processing.
       </p>
+
+      <div className="mt-6 grid gap-5 sm:grid-cols-2">
+        <ImageDropzone
+          folder="hero"
+          currentUrl={config.hero_bg_url}
+          label="Hero Background Photograph"
+          disabled={!canEdit}
+          onUploaded={(url, file) =>
+            saveUploadedAsset({ hero_bg_url: url }, "Hero background", file)
+          }
+        />
+        <ImageDropzone
+          folder="about"
+          currentUrl={config.about_photo_url}
+          label="About Section Photograph"
+          disabled={!canEdit}
+          onUploaded={(url, file) =>
+            saveUploadedAsset({ about_photo_url: url }, "About section", file)
+          }
+        />
+      </div>
+
+      {uploadError && (
+        <p className="mt-3 text-sm text-red-400" role="alert">
+          {uploadError}
+        </p>
+      )}
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <div>
@@ -309,6 +369,7 @@ export function BrandingSettingsTab() {
 
       {canEdit && (
         <>
+          <GalleryManager />
           <RoomCategoryManager />
           <PhysicalRoomMapper />
         </>
