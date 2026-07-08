@@ -80,7 +80,13 @@ function formatOccupancy(adults: number, children: number): string {
   return children > 0 ? `${adults}A, ${children}C` : `${adults}A`;
 }
 
-function hasAvailableActions(status: ReservationStatus): boolean {
+function canEditLedger(reservation: Reservation): boolean {
+  if (reservation.status === "Cancelled") return false;
+  if (reservation.status !== "Checked-Out") return true;
+  return reservation.payment_status === "partial" || reservation.payment_status === "unpaid";
+}
+
+function canCancelOrReassign(status: ReservationStatus): boolean {
   return status !== "Checked-Out" && status !== "Cancelled";
 }
 
@@ -653,7 +659,7 @@ export function Ledger() {
                         <RotateCcw size={13} />
                         Restore
                       </button>
-                    ) : hasAvailableActions(reservation.status) ? (
+                    ) : (
                       <button
                         type="button"
                         ref={(el) => {
@@ -676,19 +682,9 @@ export function Ledger() {
                           <MoreVertical size={16} />
                         )}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        aria-label={`No actions available for ${formatBookingId(reservation.id)}`}
-                        className="cursor-not-allowed rounded-sm p-1.5 text-white/40 opacity-30"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
                     )}
 
                     {view === "active" &&
-                      hasAvailableActions(reservation.status) &&
                       openMenuId === reservation.id &&
                       triggerRefs.current.get(reservation.id) && (
                         <ActionsMenu
@@ -767,14 +763,15 @@ export function Ledger() {
 
                               <button
                                 type="button"
+                                disabled={!canEditLedger(reservation)}
                                 onClick={() => {
                                   setOpenMenuId(null);
                                   setEditingReservation(reservation);
                                 }}
-                                className="flex w-full items-center gap-2 rounded-sm px-4 py-3 text-left text-sm font-medium text-white/70 transition-colors duration-300 hover:bg-white/5"
+                                className="flex w-full items-center gap-2 rounded-sm px-4 py-3 text-left text-sm font-medium text-white/70 transition-colors duration-300 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                               >
                                 <Pencil size={14} />
-                                Edit Booking
+                                Edit Ledger
                               </button>
 
                               <button
@@ -786,10 +783,10 @@ export function Ledger() {
                                 className="flex w-full items-center gap-2 rounded-sm px-4 py-3 text-left text-sm font-medium text-white/70 transition-colors duration-300 hover:bg-white/5"
                               >
                                 <FileText size={14} />
-                                Receipt
+                                Generate Receipt
                               </button>
 
-                              {hasAvailableActions(reservation.status) && (
+                              {canCancelOrReassign(reservation.status) && (
                                 <button
                                   type="button"
                                   onClick={() =>
