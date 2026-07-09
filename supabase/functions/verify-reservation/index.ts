@@ -137,13 +137,6 @@ Deno.serve(async (req) => {
   if (roleError || !callerRole) {
     return errorResponse("unauthenticated", "Could not verify staff session.", 401);
   }
-  if (callerRole === "sub_admin") {
-    return errorResponse(
-      "forbidden",
-      "You do not have access to create or edit reservations.",
-      403,
-    );
-  }
 
   let body: VerifyReservationRequest;
   try {
