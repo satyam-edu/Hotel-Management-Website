@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { motion } from "motion/react";
 import { AlertTriangle, BriefcaseBusiness, Calendar, CheckCircle2, ChevronDown, Info, Users } from "lucide-react";
 import { todayIsoDate } from "../../lib/date";
 import { generateEnquiryReference } from "../../lib/enquiries";
@@ -10,6 +11,8 @@ import type { RoomCategory } from "../../types/database";
 
 const WHATSAPP_NUMBER = "919956050766";
 const GST_RATE = 0.12;
+
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
 const DEFAULT_CANCELLATION_POLICY = [
   "Free cancellation up to 48 hours before check-in",
@@ -252,14 +255,20 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
 
   return (
     <section id="booking" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-2xl text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+        className="mx-auto max-w-2xl text-center"
+      >
         <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Reserve Your Stay
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
           Check Availability
         </h2>
-      </div>
+      </motion.div>
 
       <form onSubmit={handleSubmit} className="mt-12 grid gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">

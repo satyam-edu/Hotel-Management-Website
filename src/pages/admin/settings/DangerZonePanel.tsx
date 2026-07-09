@@ -223,13 +223,12 @@ export function DangerZonePanel() {
       <div className="glass-panel rounded-xl border border-red-400/20 p-6 sm:p-8">
         <h2 className="font-display flex items-center gap-2 text-xl font-semibold text-red-300">
           <ScrollText size={20} />
-          Audit Log Purge Management
+          Delete Old Activity Logs
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-white/60">
-          Permanently deletes audit log rows older than the selected
-          threshold. The audit trail is normally kept forever (Section
-          11.3) — this is a deliberate, tightly gated exception for
-          long-term storage management, not a routine action.
+          Clears out old activity history to save database space. Recent
+          logs (like today's or this month's logs) will not be deleted to
+          keep your current tracking safe.
         </p>
 
         <div className="mt-5 flex flex-wrap items-end gap-4">

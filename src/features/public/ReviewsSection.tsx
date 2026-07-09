@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { useSiteContent } from "../../context/SiteContentContext";
+
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
 interface GuestReview {
   id: string;
@@ -173,7 +176,13 @@ export function ReviewsSection() {
 
   return (
     <section id="reviews" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-2xl text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+        className="mx-auto max-w-2xl text-center"
+      >
         <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Guest Reviews
         </p>
@@ -185,9 +194,15 @@ export function ReviewsSection() {
             &ldquo;{content.featured_review}&rdquo;
           </blockquote>
         )}
-      </div>
+      </motion.div>
 
-      <div className="relative mt-14">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7, ease: EASE_OUT_EXPO, delay: 0.1 }}
+        className="relative mt-14"
+      >
         <div className="w-full overflow-hidden">
           <div
             className="flex gap-6 transition-transform duration-500 ease-in-out"
@@ -256,7 +271,7 @@ export function ReviewsSection() {
             </div>
           </>
         )}
-      </div>
+      </motion.div>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import {
   Bath,
   Car,
@@ -29,6 +30,24 @@ function parseAmenities(raw: string): string[] {
 // Amenities are free-text (admin-typed), not a fixed enum, so this maps
 // common keywords to an icon and falls back to a generic sparkle rather
 // than silently dropping an amenity the admin phrased differently.
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+
+const cardGridVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.15 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: EASE_OUT_EXPO },
+  },
+};
+
 function amenityIcon(label: string): LucideIcon {
   const value = label.toLowerCase();
   if (value.includes("wi-fi") || value.includes("wifi")) return Wifi;
@@ -79,7 +98,13 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
 
   return (
     <section id="rooms" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-2xl text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
+        className="mx-auto max-w-2xl text-center"
+      >
         <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Rooms &amp; Suites
         </p>
@@ -89,7 +114,7 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
         <p className="mt-4 text-base leading-relaxed text-white/70">
           {content.rooms_intro}
         </p>
-      </div>
+      </motion.div>
 
       {isLoading && (
         <div className="glass-panel mt-14 flex items-center justify-center gap-3 rounded-xl p-10 text-sm text-white/40">
@@ -114,13 +139,20 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
       )}
 
       {!isLoading && !loadError && categories.length > 0 && (
-        <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={cardGridVariants}
+          className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3"
+        >
           {categories.map((room) => {
             const amenities = parseAmenities(room.amenities);
 
             return (
-              <div
+              <motion.div
                 key={room.id}
+                variants={cardVariants}
                 className="group flex flex-col overflow-hidden border border-slate-800"
               >
                 <div className="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl">
@@ -180,10 +212,10 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
                     <div className="absolute inset-0 -translate-x-full bg-primary transition-transform duration-500 ease-out group-hover/btn:translate-x-0" />
                   </a>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
     </section>
   );

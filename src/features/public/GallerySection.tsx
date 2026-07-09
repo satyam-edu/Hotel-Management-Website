@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useSiteContent } from "../../context/SiteContentContext";
 import { loadGalleryImages, sortFoldersByPriority } from "../../lib/gallery";
@@ -6,6 +7,24 @@ import { supabase } from "../../lib/supabase";
 import type { GalleryImage } from "../../types/database";
 
 const INLINE_LIMIT = 8;
+
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+
+const galleryGridVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const galleryItemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: EASE_OUT_EXPO },
+  },
+};
 
 export function GallerySection() {
   const { content } = useSiteContent();
@@ -81,14 +100,20 @@ export function GallerySection() {
 
   return (
     <section id="gallery" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-2xl text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+        className="mx-auto max-w-2xl text-center"
+      >
         <p className="text-xs uppercase tracking-[0.3em] text-primary">
           Gallery
         </p>
         <h2 className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
           {content.gallery_header}
         </h2>
-      </div>
+      </motion.div>
 
       {!isLoading && !loadError && images.length > 0 && (
         <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -130,13 +155,18 @@ export function GallerySection() {
 
       {!isLoading && !loadError && images.length > 0 && (
         <>
-          <div
+          <motion.div
             key={activeFolder}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={galleryGridVariants}
             className="gallery-cross-fade mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-6 px-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           >
             {inlineImages.map((image, index) => (
-              <div
+              <motion.div
                 key={image.id}
+                variants={galleryItemVariants}
                 onClick={() => setActivePhotoIndex(index)}
                 className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-xl border border-slate-800/40 shadow-md"
               >
@@ -153,9 +183,9 @@ export function GallerySection() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           {totalImages > INLINE_LIMIT && (
             <div className="mt-10 flex justify-center">

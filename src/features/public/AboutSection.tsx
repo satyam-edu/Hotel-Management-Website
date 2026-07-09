@@ -1,6 +1,9 @@
+import { motion } from "motion/react";
 import { useSystemContext } from "../../context/SystemContext";
 import { useSiteContent } from "../../context/SiteContentContext";
 import heroFallback from "../../assets/hero.png";
+
+const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
 export function AboutSection() {
   const { config } = useSystemContext();
@@ -9,7 +12,12 @@ export function AboutSection() {
 
   return (
     <section id="about" className="mx-auto max-w-7xl px-6 py-20 md:py-28">
-      <div className="grid gap-12 md:grid-cols-2 md:items-center md:gap-16">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
+        className="grid gap-12 md:grid-cols-2 md:items-center md:gap-16">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-primary">
             About Us
@@ -35,7 +43,7 @@ export function AboutSection() {
             loading="lazy"
           />
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }
