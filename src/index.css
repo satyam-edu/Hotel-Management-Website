@@ -20,6 +20,12 @@
   --glass-border-alpha: 0.08;
   --glass-blur: 20px;
 
+  /* .glass-panel backs real modals/dropdowns/popovers that must stay
+     legible over arbitrary busy content (room grids, tables, forms) —
+     unlike .glass-header's subtle frosted tint over one hero photo, these
+     need a solidly opaque background, not a near-transparent one. */
+  --panel-bg-alpha: 0.98;
+
   --header-height: 5rem;
 }
 
@@ -59,7 +65,7 @@ h3,
 }
 
 .glass-panel {
-  background-color: rgba(255, 255, 255, var(--glass-bg-alpha));
+  background-color: rgba(var(--color-background-rgb), var(--panel-bg-alpha));
   border: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -75,6 +81,28 @@ h3,
   border-bottom: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Slim, low-contrast scrollbar for horizontally-scrollable dashboard
+   tables — no scrollbar plugin is installed, so this is hand-rolled rather
+   than pulling in a dependency for one utility class. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
 }
 
 .sync-loading {
@@ -130,22 +158,14 @@ h3,
   animation: lightbox-backdrop-in 300ms ease-out forwards;
 }
 
+/* PrintableInvoice now renders on its own standalone route/tab (see
+   src/components/billing/PrintableInvoice.tsx), so there's no surrounding
+   dashboard chrome to hide — this rule only needs to normalize the page's
+   own layout for print, not visibility-hide siblings. */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-
-  .print-receipt,
-  .print-receipt * {
-    visibility: visible;
-  }
-
-  .print-receipt {
-    position: absolute;
-    inset: 0;
+  .print-invoice {
     margin: 0;
     max-width: none;
-    max-height: none;
     box-shadow: none;
   }
 }

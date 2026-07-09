@@ -166,13 +166,18 @@ export function RoomRatesPanel() {
         </p>
       )}
 
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
+      <div className="mt-6 w-full overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[560px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[40%]" />
+            <col className="w-[30%]" />
+            <col className="w-[30%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
-              <th className="py-3 pr-4 font-medium">Category</th>
-              <th className="py-3 pr-4 font-medium">Nightly Rate</th>
-              <th className="py-3 pr-4 font-medium">Availability</th>
+              <th className="whitespace-nowrap py-3 pr-4 font-medium">Category</th>
+              <th className="whitespace-nowrap py-3 pr-4 font-medium">Nightly Rate</th>
+              <th className="whitespace-nowrap py-3 pr-4 font-medium">Availability</th>
             </tr>
           </thead>
           <tbody>

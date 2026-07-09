@@ -101,16 +101,24 @@ export function Enquiries() {
         </p>
       )}
 
-      <div className="glass-panel overflow-x-auto rounded-xl">
-        <table className="w-full min-w-[820px] text-left text-sm">
+      <div className="glass-panel w-full overflow-x-auto rounded-xl scrollbar-thin">
+        <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[12%]" />
+            <col className="w-[20%]" />
+            <col className="w-[15%]" />
+            <col className="w-[23%]" />
+            <col className="w-[18%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
-              <th className="px-6 py-4 font-medium">Enquiry ID</th>
-              <th className="px-6 py-4 font-medium">Guest Name</th>
-              <th className="px-6 py-4 font-medium">Phone</th>
-              <th className="px-6 py-4 font-medium">Dates &amp; Duration</th>
-              <th className="px-6 py-4 font-medium">Requested Room</th>
-              <th className="px-6 py-4 font-medium text-right">Actions</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Enquiry ID</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Guest Name</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Phone</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Dates &amp; Duration</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Requested Room</th>
+              <th className="whitespace-nowrap px-6 py-4 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -144,22 +152,22 @@ export function Enquiries() {
                   key={enquiry.id}
                   className="border-b border-white/5 last:border-0"
                 >
-                  <td className="px-6 py-4 font-mono text-xs text-white/70">
+                  <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-white/70">
                     {enquiry.reference_code}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="flex items-center gap-2 text-white/90">
+                    <span className="flex min-w-0 items-center gap-2 text-white/90">
                       <User size={14} className="shrink-0 text-primary" />
-                      {enquiry.full_name}
+                      <span className="truncate">{enquiry.full_name}</span>
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <span className="flex items-center gap-2 text-white/70">
                       <Phone size={14} className="shrink-0 text-white/40" />
                       {enquiry.mobile}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <span className="flex items-center gap-2 text-white/70">
                       <Calendar size={14} className="shrink-0 text-white/40" />
                       {formatDateRange(
@@ -168,15 +176,15 @@ export function Enquiries() {
                       )}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-white/70">
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <p className="truncate text-white/70">
                       {enquiry.room_type_name ?? "—"}
                     </p>
                     <p className="mt-1 text-xs text-white/40">
                       {formatPartySize(enquiry.adults, enquiry.children)}
                     </p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"

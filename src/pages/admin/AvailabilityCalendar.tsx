@@ -635,7 +635,7 @@ export function AvailabilityCalendar() {
 
       {popoverReservation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="glass-panel w-full max-w-sm rounded-xl p-6">
+          <div className="glass-panel max-h-[calc(100vh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl p-6">
             <div className="flex items-start justify-between">
               <h3 className="font-display text-lg font-semibold text-white">
                 Room {popoverReservation.room_number}

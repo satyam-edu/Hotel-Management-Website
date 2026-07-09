@@ -162,8 +162,14 @@ export function SettingsAudit() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+      <div className="mt-6 w-full overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[780px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col className="w-[18%]" />
+            <col className="w-[48%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
               <th className="py-3 pr-4 font-medium">Timestamp</th>

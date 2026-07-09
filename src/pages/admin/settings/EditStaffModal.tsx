@@ -63,7 +63,7 @@ export function EditStaffModal({ account, onClose, onSaved }: EditStaffModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass-panel w-full max-w-md rounded-xl p-6 sm:p-8">
+      <div className="glass-panel max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl p-6 sm:p-8">
         <div className="flex items-start justify-between">
           <h2 className="font-display text-xl font-semibold text-white">
             Edit Staff Profile

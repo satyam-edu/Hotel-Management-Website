@@ -12,6 +12,7 @@ import { RoomMap } from "./pages/admin/RoomMap";
 import { AvailabilityCalendar } from "./pages/admin/AvailabilityCalendar";
 import { Ledger } from "./pages/admin/Ledger";
 import { Settings } from "./pages/admin/Settings";
+import { PrintableInvoice } from "./components/billing/PrintableInvoice";
 
 function App() {
   return (
@@ -23,6 +24,15 @@ function App() {
           </Route>
 
           <Route path="/admin" element={<AdminLogin />} />
+
+          <Route
+            path="/admin/invoice/:reservationId"
+            element={
+              <ProtectedRoute>
+                <PrintableInvoice />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             element={

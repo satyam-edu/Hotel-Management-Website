@@ -29,7 +29,6 @@ import { useSystemContext } from "../../context/SystemContext";
 import { useAuth } from "../../context/AuthContext";
 import { logAction } from "../../lib/audit";
 import { EditLedgerModal } from "./EditLedgerModal";
-import { ReceiptModal } from "./ReceiptModal";
 import type {
   AuditActionType,
   PaymentStatus,
@@ -196,9 +195,6 @@ export function Ledger() {
     action: "Checked-Out" | "Cancelled";
   } | null>(null);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(
-    null,
-  );
-  const [receiptReservation, setReceiptReservation] = useState<Reservation | null>(
     null,
   );
   const [deletingReservation, setDeletingReservation] = useState<Reservation | null>(
@@ -490,7 +486,7 @@ export function Ledger() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="relative sm:col-span-2 lg:col-span-1">
           <Search
             size={16}
@@ -552,8 +548,8 @@ export function Ledger() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-2 lg:flex-nowrap">
+          <div className="relative min-w-[140px] flex-1">
             <Calendar
               size={14}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
@@ -566,8 +562,8 @@ export function Ledger() {
               className="w-full rounded-sm border border-white/10 bg-white/[0.06] py-2.5 pl-9 pr-2 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
             />
           </div>
-          <span className="text-xs text-white/40">to</span>
-          <div className="relative flex-1">
+          <span className="shrink-0 text-xs text-white/40">to</span>
+          <div className="relative min-w-[140px] flex-1">
             <input
               type="date"
               value={checkInTo}
@@ -586,19 +582,30 @@ export function Ledger() {
         </p>
       )}
 
-      <div className="glass-panel overflow-x-auto rounded-xl">
-        <table className="w-full min-w-[960px] text-left text-sm">
+      <div className="glass-panel w-full overflow-x-auto rounded-xl scrollbar-thin">
+        <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[9%]" />
+            <col className="w-[15%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[10%]" />
+            <col className="w-[15%]" />
+            <col className="w-[12%]" />
+            <col className="w-[9%]" />
+            <col className="w-[10%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
-              <th className="px-6 py-4 font-medium">Booking ID</th>
-              <th className="px-6 py-4 font-medium">Guest Name</th>
-              <th className="px-6 py-4 font-medium">Phone</th>
-              <th className="px-6 py-4 font-medium">Room</th>
-              <th className="px-6 py-4 font-medium">Occupancy</th>
-              <th className="px-6 py-4 font-medium">Dates</th>
-              <th className="px-6 py-4 font-medium">Amount</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium text-right">Actions</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Booking ID</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Guest Name</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Phone</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Room</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Occupancy</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Dates</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Amount</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
+              <th className="whitespace-nowrap px-6 py-4 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -632,29 +639,29 @@ export function Ledger() {
                   key={reservation.id}
                   className="border-b border-white/5 last:border-0"
                 >
-                  <td className="px-6 py-4 font-mono text-xs text-white/70">
+                  <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-white/70">
                     {formatBookingId(reservation.id)}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="flex items-center gap-2 text-white/90">
+                    <span className="flex min-w-0 items-center gap-2 text-white/90">
                       <User size={14} className="shrink-0 text-primary" />
-                      {reservation.guest_name ?? "—"}
+                      <span className="truncate">{reservation.guest_name ?? "—"}</span>
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-white/70">
+                  <td className="whitespace-nowrap px-6 py-4 text-white/70">
                     {reservation.guest_phone ?? "—"}
                   </td>
-                  <td className="px-6 py-4 text-white/70">
+                  <td className="whitespace-nowrap px-6 py-4 text-white/70">
                     {reservation.room_number
                       ? `Room ${reservation.room_number}`
                       : "—"}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/70">
                       {formatOccupancy(reservation.adults, reservation.children)}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <span className="flex items-center gap-2 text-white/70">
                       <Calendar size={14} className="shrink-0 text-white/40" />
                       {formatDateRange(
@@ -663,7 +670,7 @@ export function Ledger() {
                       )}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <p className="font-medium text-white">
                       {formatCurrency(reservation.total_amount)}
                     </p>
@@ -673,14 +680,14 @@ export function Ledger() {
                       {PAYMENT_STATUS_LABELS[reservation.payment_status]}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <span
                       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE_STYLES[reservation.status]}`}
                     >
                       {reservation.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="whitespace-nowrap px-6 py-4 text-right">
                     {view === "archived" ? (
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -825,12 +832,24 @@ export function Ledger() {
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  setReceiptReservation(reservation);
+                                  window.open(`/admin/invoice/${reservation.id}`, "_blank");
                                 }}
                                 className="flex w-full items-center gap-2 rounded-sm px-4 py-3 text-left text-sm font-medium text-white/70 transition-colors duration-300 hover:bg-white/5"
                               >
                                 <FileText size={14} />
                                 Generate Receipt
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  window.open(`/admin/invoice/${reservation.id}`, "_blank");
+                                }}
+                                className="flex w-full items-center gap-2 rounded-sm px-4 py-3 text-left text-sm font-medium text-white/70 transition-colors duration-300 hover:bg-white/5"
+                              >
+                                <FileText size={14} />
+                                Generate GST Invoice
                               </button>
 
                               {canCancelOrReassign(reservation.status) && (
@@ -900,17 +919,10 @@ export function Ledger() {
         />
       )}
 
-      {receiptReservation && (
-        <ReceiptModal
-          reservation={receiptReservation}
-          config={config}
-          onClose={() => setReceiptReservation(null)}
-        />
-      )}
 
       {deletingReservation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="glass-panel w-full max-w-md rounded-xl border border-red-400/25 p-6 sm:p-8">
+          <div className="glass-panel max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-red-400/25 p-6 sm:p-8">
             <div className="flex items-start gap-3">
               <AlertTriangle size={22} className="mt-0.5 shrink-0 text-red-400" />
               <div>
