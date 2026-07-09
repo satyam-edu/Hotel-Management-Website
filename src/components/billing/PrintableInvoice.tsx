@@ -33,6 +33,16 @@ function formatBillNo(billSequence: number): string {
   return `D${String(billSequence).padStart(5, "0")}`;
 }
 
+// Mirrors formatBillNo's convention (letter prefix + 5-digit zero-padded
+// sequence, e.g. T00278) but with a "T" prefix for the settlement/receipt
+// row. There's no separate per-transaction table this could be sourced
+// from — reservations.amount_paid is a single running total, not itemized
+// payments — so this derives from the same real bill_sequence rather than
+// inventing an unrelated random id.
+function formatReceiptNo(billSequence: number): string {
+  return `T${String(billSequence).padStart(5, "0")}`;
+}
+
 function formatDate(value: string): string {
   if (!value) return "";
   const date = new Date(value);
@@ -151,9 +161,18 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
     },
   ]);
 
-  const [settlementRows, setSettlementRows] = useState<SettlementRow[]>([
-    blankSettlementRow(),
-  ]);
+  const [settlementRows, setSettlementRows] = useState<SettlementRow[]>(() =>
+    reservation.amount_paid > 0
+      ? [
+          {
+            receiptNo: formatReceiptNo(reservation.bill_sequence),
+            recDate: formatDate(reservation.check_in_date),
+            settlementMode: "",
+            amount: reservation.amount_paid.toFixed(2),
+          },
+        ]
+      : [blankSettlementRow()],
+  );
 
   const allowanceAmount = toNumber(fields.allowance);
   const netPayable = Math.max(reservation.total_amount - allowanceAmount, 0);
