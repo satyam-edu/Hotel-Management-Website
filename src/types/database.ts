@@ -96,6 +96,7 @@ export type Reservation = {
   payment_status: PaymentStatus;
   status: ReservationStatus;
   is_cancelled: boolean;
+  bill_sequence: number;
   created_at: string;
   updated_at: string;
 };
@@ -253,6 +254,7 @@ export type Database = {
           | "payment_status"
           | "status"
           | "is_cancelled"
+          | "bill_sequence"
           | "created_at"
           | "updated_at"
         > & {

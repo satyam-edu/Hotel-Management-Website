@@ -15,17 +15,22 @@ const PROPERTY_PHONE_2 = "+91 9956050767";
 const PROPERTY_EMAIL = "thekamalainn@gmail.com";
 const PROPERTY_GSTIN = "09AAZFK7676F1ZD";
 
-// The paper hotel register this invoice mirrors tracks several fields (Bill
-// No, Reg No, Meal Plan, Company/Nationality/Pax name+age, client GSTIN,
-// per-room "Other Room"/"Other Tariff", and a settlement/receipt ledger)
-// that the Reservation schema does not capture today — it only has
-// guest_name, room_number, dates, adults/children counts, and a single
-// running amount_paid scalar. Rather than block this printable layout on a
-// schema migration, those fields render as blank, editable text inputs the
-// front desk fills in per booking; nothing here is persisted to the
-// database.
-function formatBillNo(id: string): string {
-  return `D${id.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+// The paper hotel register this invoice mirrors tracks several fields (Reg
+// No, Meal Plan, Company/Nationality/Pax name+age, client GSTIN, per-room
+// "Other Room"/"Other Tariff", and a settlement/receipt ledger) that the
+// Reservation schema does not capture today — it only has guest_name,
+// room_number, dates, adults/children counts, and a single running
+// amount_paid scalar. Rather than block this printable layout on a schema
+// migration, those fields render as blank, editable text inputs the front
+// desk fills in per booking; nothing here is persisted to the database.
+//
+// Bill No. is the one exception — it's backed by reservations.bill_sequence
+// (see 0033_reservation_bill_sequence.sql), a real auto-incrementing
+// integer assigned once at insert, formatted as a single uppercase prefix
+// letter + 5-digit zero-padded sequence (D00216) matching the physical
+// register's numbering.
+function formatBillNo(billSequence: number): string {
+  return `D${String(billSequence).padStart(5, "0")}`;
 }
 
 function formatDate(value: string): string {
@@ -112,7 +117,7 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
   const balance = Math.max(reservation.total_amount - reservation.amount_paid, 0);
 
   const [fields, setFields] = useState<ManualFields>({
-    billNo: formatBillNo(reservation.id),
+    billNo: formatBillNo(reservation.bill_sequence),
     name: reservation.guest_name ?? "",
     companyName: "",
     regNo: "",
@@ -246,6 +251,7 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
             <MetaField label="Name" value={fields.name} onChange={(v) => updateField("name", v)} />
             <MetaField label="Company" value={fields.companyName} onChange={(v) => updateField("companyName", v)} />
             <MetaField label="Room No." value={reservation.room_number ?? ""} readOnly />
+            <MetaField label="Age" value={fields.age} onChange={(v) => updateField("age", v)} />
             <MetaField
               label="Pax"
               value={`Adult- ${reservation.adults} / ${reservation.children}`}
@@ -270,7 +276,6 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
             <div className="h-2" />
             <MetaField label="Other Tariff" value={fields.otherTariff} onChange={(v) => updateField("otherTariff", v)} />
             <MetaField label="GSTIN No." value={fields.clientGstin} onChange={(v) => updateField("clientGstin", v)} />
-            <MetaField label="Age" value={fields.age} onChange={(v) => updateField("age", v)} />
           </div>
         </div>
 
@@ -386,7 +391,7 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
             <thead>
               <tr className="border-b border-slate-800 text-left">
                 <Th align="left">Receipt No</Th>
-                <Th align="left">Rec. Date</Th>
+                <Th align="left">Rec.Date</Th>
                 <Th align="left">Settlement Mode</Th>
                 <Th align="left">Amt.</Th>
               </tr>
