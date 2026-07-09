@@ -42,7 +42,7 @@ const ADMIN_NAV_LINKS: AdminNavLink[] = [
 
 export function AdminLayout() {
   const navigate = useNavigate();
-  const { user, role, logout } = useAuth();
+  const { user, role, staffUsername, logout } = useAuth();
 
   const visibleLinks = ADMIN_NAV_LINKS.filter(
     (link) => !link.restrictedTo || (role && link.restrictedTo.includes(role)),
@@ -106,8 +106,9 @@ export function AdminLayout() {
           <p className="text-sm text-white/50">
             Signed in as{" "}
             <span className="font-semibold text-white">
-              {formatRoleLabel(role)}
+              {staffUsername ?? formatRoleLabel(role)}
             </span>
+            <span className="text-white/40"> &middot; {formatRoleLabel(role)}</span>
             {user?.email && (
               <span className="text-white/40"> &middot; {user.email}</span>
             )}

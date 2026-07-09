@@ -1,9 +1,6 @@
-export type ChildGender = "male" | "female";
+import type { ChildDetail, ChildGender } from "../types/database";
 
-export interface ChildDetail {
-  age: number;
-  gender: ChildGender;
-}
+export type { ChildDetail, ChildGender };
 
 export interface RoomsCalculatorRules {
   minBookingAge: number;

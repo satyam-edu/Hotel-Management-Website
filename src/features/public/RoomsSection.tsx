@@ -132,7 +132,7 @@ export function RoomsSection({ onSelectRoom }: RoomsSectionProps) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background-dark to-transparent opacity-80" />
 
-                  <div className="absolute left-4 top-4 rounded bg-[#c9a94c]/90 px-3 py-1 text-xs font-bold tracking-wide text-slate-950">
+                  <div className="absolute left-4 top-4 rounded bg-primary/90 px-3 py-1 text-xs font-bold tracking-wide text-slate-950">
                     {room.is_unavailable ? "Waitlist" : "Available"}
                   </div>
 

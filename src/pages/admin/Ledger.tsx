@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
+  AlertTriangle,
   Calendar,
   ChevronDown,
   Download,
@@ -12,6 +13,7 @@ import {
   Pencil,
   RotateCcw,
   Search,
+  Trash2,
   User,
   XCircle,
 } from "lucide-react";
@@ -168,7 +170,8 @@ function ActionsMenu({ anchorEl, onClose, children }: ActionsMenuProps) {
 
 export function Ledger() {
   const { config } = useSystemContext();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isMasterAdmin = role === "master_admin";
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [roomCategories, setRoomCategories] = useState<RoomCategory[]>([]);
@@ -198,6 +201,11 @@ export function Ledger() {
   const [receiptReservation, setReceiptReservation] = useState<Reservation | null>(
     null,
   );
+  const [deletingReservation, setDeletingReservation] = useState<Reservation | null>(
+    null,
+  );
+  const [isHardDeleting, setIsHardDeleting] = useState(false);
+  const [hardDeleteError, setHardDeleteError] = useState<string | null>(null);
   const triggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const roomNumberToCategory = useMemo(() => {
@@ -319,6 +327,30 @@ export function Ledger() {
     }
 
     setUpdatingId(null);
+    await loadReservations();
+  }
+
+  async function handleHardDelete() {
+    if (!supabase || !deletingReservation) return;
+
+    setIsHardDeleting(true);
+    setHardDeleteError(null);
+
+    // The master_admin check is re-enforced inside the RPC itself — this
+    // client-side gate is UX only, not the real protection.
+    const { error } = await supabase.rpc("hard_delete_reservation", {
+      target_reservation_id: deletingReservation.id,
+    });
+
+    setIsHardDeleting(false);
+
+    if (error) {
+      console.error("Failed to permanently delete reservation:", error.message);
+      setHardDeleteError("Could not delete this booking. Please try again.");
+      return;
+    }
+
+    setDeletingReservation(null);
     await loadReservations();
   }
 
@@ -650,15 +682,30 @@ export function Ledger() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {view === "archived" ? (
-                      <button
-                        type="button"
-                        disabled={updatingId === reservation.id}
-                        onClick={() => handleRestore(reservation)}
-                        className="flex items-center gap-1.5 rounded-sm border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-white/70 transition-colors duration-300 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <RotateCcw size={13} />
-                        Restore
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={updatingId === reservation.id}
+                          onClick={() => handleRestore(reservation)}
+                          className="flex items-center gap-1.5 rounded-sm border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-white/70 transition-colors duration-300 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <RotateCcw size={13} />
+                          Restore
+                        </button>
+                        {isMasterAdmin && (
+                          <button
+                            type="button"
+                            aria-label={`Permanently delete booking ${formatBookingId(reservation.id)}`}
+                            onClick={() => {
+                              setHardDeleteError(null);
+                              setDeletingReservation(reservation);
+                            }}
+                            className="rounded-sm border border-red-400/25 p-2 text-red-400 transition-colors duration-300 hover:bg-red-400/10"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -801,6 +848,21 @@ export function Ledger() {
                                   Cancel Booking
                                 </button>
                               )}
+
+                              {isMasterAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setHardDeleteError(null);
+                                    setDeletingReservation(reservation);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-sm border-t border-white/5 px-4 py-3 text-left text-sm font-medium text-red-400 transition-colors duration-300 hover:bg-red-400/10"
+                                >
+                                  <Trash2 size={14} />
+                                  Permanently Delete Booking
+                                </button>
+                              )}
                             </>
                           )}
                         </ActionsMenu>
@@ -844,6 +906,54 @@ export function Ledger() {
           config={config}
           onClose={() => setReceiptReservation(null)}
         />
+      )}
+
+      {deletingReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-panel w-full max-w-md rounded-xl border border-red-400/25 p-6 sm:p-8">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={22} className="mt-0.5 shrink-0 text-red-400" />
+              <div>
+                <h2 className="font-display text-lg font-semibold text-red-300">
+                  Permanently Delete Booking
+                </h2>
+                <p className="mt-2 text-sm text-white/70">
+                  Warning: This will permanently erase this booking record
+                  from the relational store. This action is irreversible.
+                </p>
+                <p className="mt-3 text-sm text-white/50">
+                  {deletingReservation.guest_name ?? "Guest"} ·{" "}
+                  {formatBookingId(deletingReservation.id)} · Room{" "}
+                  {deletingReservation.room_number ?? "—"}
+                </p>
+              </div>
+            </div>
+
+            {hardDeleteError && (
+              <p className="mt-4 text-sm text-red-400" role="alert">
+                {hardDeleteError}
+              </p>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingReservation(null)}
+                className="rounded-sm border border-white/15 px-5 py-2.5 text-xs uppercase tracking-widest text-white/60 transition-colors duration-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isHardDeleting}
+                onClick={handleHardDelete}
+                className="rounded-sm bg-red-500/80 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.15em] text-white transition-opacity duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isHardDeleting ? "Deleting…" : "Permanently Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

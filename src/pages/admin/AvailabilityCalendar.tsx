@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Phone, User, X } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  Phone,
+  Rows3,
+  User,
+  X,
+} from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { daysInMonth, toIsoDate, todayIsoDate } from "../../lib/date";
 import { loadPhysicalRooms, type PhysicalRoomWithCategory } from "../../lib/rooms";
@@ -34,6 +43,29 @@ const STATUS_STYLES: Record<string, { fill: string; text: string }> = {
     text: "text-amber-300",
   },
 };
+
+type ViewMode = "timeline" | "density";
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Blueprint 4.6: density cells escalate from calm toward urgent as the day
+// fills up — a monotonic scale, distinct from the dashboard's business-health
+// tri-state (where LOW occupancy is the warning). Every cell also carries the
+// literal "booked/total" figure, so the density reads without color
+// perception, per the design system's color-redundancy rule.
+const DENSITY_STEPS = [
+  { maxRatio: 0, cell: "bg-white/[0.02]", text: "text-white/40", label: "Empty" },
+  { maxRatio: 0.4, cell: "bg-emerald-500/10", text: "text-emerald-300", label: "Light" },
+  { maxRatio: 0.7, cell: "bg-primary/10", text: "text-primary", label: "Moderate" },
+  { maxRatio: 0.999, cell: "bg-amber-500/15", text: "text-amber-300", label: "High" },
+  { maxRatio: 1, cell: "bg-red-500/15", text: "text-red-300", label: "Full" },
+] as const;
+
+function densityStep(booked: number, total: number) {
+  if (total <= 0 || booked <= 0) return DENSITY_STEPS[0];
+  const ratio = booked / total;
+  return DENSITY_STEPS.find((step) => ratio <= step.maxRatio) ?? DENSITY_STEPS[4];
+}
 
 function groupByFloor(
   rooms: PhysicalRoomWithCategory[],
@@ -86,6 +118,7 @@ export function AvailabilityCalendar() {
   const [popoverReservation, setPopoverReservation] = useState<Reservation | null>(
     null,
   );
+  const [viewMode, setViewMode] = useState<ViewMode>("timeline");
 
   const [availableWidth, setAvailableWidth] = useState(0);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -248,6 +281,37 @@ export function AvailabilityCalendar() {
     return result;
   }, [reservations, roomTopByNumber, monthStart, monthEnd, year, monthIndex, totalDays]);
 
+  // Distinct occupied rooms per day of the month, computed from the same
+  // reservations dataset the timeline already loads — no extra fetch. The
+  // check-out day is exclusive (a room freed by a morning departure is
+  // sellable that night), matching the overlap queries used everywhere else.
+  // A Set per day guards against any double-counted room even if two records
+  // ever overlap on the same room.
+  const dailyOccupancy = useMemo(() => {
+    const occupied: Array<Set<string>> = Array.from(
+      { length: totalDays },
+      () => new Set<string>(),
+    );
+
+    for (const reservation of reservations) {
+      if (!reservation.room_number) continue;
+      for (let day = 1; day <= totalDays; day++) {
+        const dayIso = toIsoDate(year, monthIndex, day);
+        if (
+          reservation.check_in_date <= dayIso &&
+          reservation.check_out_date > dayIso
+        ) {
+          occupied[day - 1].add(reservation.room_number);
+        }
+      }
+    }
+
+    return occupied.map((rooms) => rooms.size);
+  }, [reservations, totalDays, year, monthIndex]);
+
+  const firstWeekdayOfMonth = new Date(year, monthIndex, 1).getDay();
+  const totalRooms = rooms.length;
+
   function goToPreviousMonth() {
     if (monthIndex === 0) {
       setMonthIndex(11);
@@ -279,11 +343,41 @@ export function AvailabilityCalendar() {
             Availability Calendar
           </h1>
           <p className="mt-2 text-sm text-white/60">
-            Booking distribution for every room across the whole month.
+            {viewMode === "timeline"
+              ? "Booking distribution for every room across the whole month."
+              : "How many rooms are booked on each day of the month."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="mr-2 flex rounded-sm border border-white/15">
+            <button
+              type="button"
+              onClick={() => setViewMode("timeline")}
+              aria-pressed={viewMode === "timeline"}
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] uppercase tracking-wider transition-colors duration-300 ${
+                viewMode === "timeline"
+                  ? "bg-primary/15 text-primary"
+                  : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              <Rows3 size={13} />
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("density")}
+              aria-pressed={viewMode === "density"}
+              className={`flex items-center gap-1.5 border-l border-white/15 px-3 py-2 text-[11px] uppercase tracking-wider transition-colors duration-300 ${
+                viewMode === "density"
+                  ? "bg-primary/15 text-primary"
+                  : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              <LayoutGrid size={13} />
+              Month View
+            </button>
+          </div>
           <button
             type="button"
             onClick={goToPreviousMonth}
@@ -322,7 +416,58 @@ export function AvailabilityCalendar() {
         </div>
       )}
 
-      {!isLoading && !loadError && (
+      {!isLoading && !loadError && viewMode === "density" && (
+        <div className="glass-panel rounded-xl p-4 sm:p-6">
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEKDAY_LABELS.map((label) => (
+              <div
+                key={label}
+                className="pb-2 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-white/40"
+              >
+                {label}
+              </div>
+            ))}
+
+            {Array.from({ length: firstWeekdayOfMonth }, (_, i) => (
+              <div key={`blank-${i}`} />
+            ))}
+
+            {dayNumbers.map((day) => {
+              const booked = dailyOccupancy[day - 1] ?? 0;
+              const step = densityStep(booked, totalRooms);
+              const isToday = day - 1 === todayDayIndex;
+
+              return (
+                <div
+                  key={day}
+                  className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border sm:aspect-[4/3] ${step.cell} ${
+                    isToday ? "border-primary/60" : "border-white/[0.06]"
+                  }`}
+                >
+                  <span
+                    className={`text-xs font-medium ${
+                      isToday ? "text-primary" : "text-white/60"
+                    }`}
+                  >
+                    {day}
+                  </span>
+                  <span className={`text-[11px] font-semibold ${step.text}`}>
+                    {booked}/{totalRooms}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalRooms === 0 && (
+            <div className="px-6 py-10 text-center text-sm text-white/40">
+              No physical rooms configured yet.
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !loadError && viewMode === "timeline" && (
         <div className="glass-panel rounded-xl">
           <div ref={scrollContainerRef} className="overflow-x-auto">
             <div style={{ width: Math.max(ROOM_COLUMN_WIDTH + gridWidth, availableWidth) }}>
@@ -343,7 +488,7 @@ export function AvailabilityCalendar() {
                       style={{ width: dayColumnWidth }}
                     >
                       {isToday ? (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-background-dark shadow-[0_0_10px_rgba(212,175,55,0.5)]">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-background-dark shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.5)]">
                           {day}
                         </span>
                       ) : (
@@ -460,20 +605,33 @@ export function AvailabilityCalendar() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-indigo-500/10 border-l-2 border-indigo-400" />
-          Checked-In
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-amber-500/10 border-l-2 border-amber-400" />
-          Confirmed
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm border border-white/10" />
-          Vacant
-        </span>
-      </div>
+      {viewMode === "timeline" ? (
+        <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm bg-indigo-500/10 border-l-2 border-indigo-400" />
+            Checked-In
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm bg-amber-500/10 border-l-2 border-amber-400" />
+            Confirmed
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border border-white/10" />
+            Vacant
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
+          {DENSITY_STEPS.map((step) => (
+            <span key={step.label} className="flex items-center gap-1.5">
+              <span
+                className={`h-3 w-3 rounded-sm border border-white/[0.06] ${step.cell}`}
+              />
+              {step.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {popoverReservation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

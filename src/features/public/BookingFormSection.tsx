@@ -215,6 +215,7 @@ export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) 
       check_out_date: form.checkOut,
       adults: form.adults,
       children: form.children,
+      child_details: childDetails,
       room_type_id: form.roomTypeId || null,
     });
 

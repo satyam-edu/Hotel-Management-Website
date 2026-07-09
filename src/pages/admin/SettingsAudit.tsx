@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, ShieldAlert } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { formatRoleLabel } from "../../context/AuthContext";
 import {
@@ -8,6 +8,8 @@ import {
   type AuditLogWithActor,
 } from "../../lib/auditLogs";
 import type { AuditActionType } from "../../types/database";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 const ACTION_TYPE_LABELS: Record<AuditActionType, string> = {
   create_booking: "Create Booking",
@@ -38,6 +40,12 @@ const ACTION_TYPE_LABELS: Record<AuditActionType, string> = {
   restore_gallery_image: "Restore Gallery Image",
   delete_gallery_image: "Delete Gallery Image",
   update_gallery_image_folder: "Reassign Gallery Folder",
+  restore_demo_data: "Restore Demo Data",
+  wipe_reservations: "Wipe Bookings",
+  hard_delete_booking: "Permanently Delete Booking",
+  update_staff_profile: "Update Staff Profile",
+  delete_staff: "Delete Staff Account",
+  system_purge: "Audit Log Purge",
 };
 
 function formatTimestamp(value: string): string {
@@ -60,13 +68,27 @@ export function SettingsAudit() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [actionTypeFilter, setActionTypeFilter] = useState<AuditActionType | "all">("all");
+
+  // Debounce keystrokes into the applied search term, resetting to the first
+  // page whenever the term actually changes.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => {
     if (!canView) return;
 
     let isCancelled = false;
     setIsLoading(true);
 
-    loadAuditLogs(page).then((result) => {
+    loadAuditLogs(page, { search, actionType: actionTypeFilter }).then((result) => {
       if (isCancelled) return;
       setLogs(result.data);
       setTotalCount(result.totalCount);
@@ -77,7 +99,7 @@ export function SettingsAudit() {
     return () => {
       isCancelled = true;
     };
-  }, [page, canView]);
+  }, [page, canView, search, actionTypeFilter]);
 
   if (!canView) {
     return (
@@ -98,6 +120,47 @@ export function SettingsAudit() {
       <p className="mt-1 text-sm text-white/60">
         A permanent, append-only record of every administrative action.
       </p>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+          />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search descriptions…"
+            aria-label="Search audit log descriptions"
+            className="w-full rounded-sm border border-white/10 bg-white/[0.06] py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary"
+          />
+        </div>
+        <div className="relative sm:w-56">
+          <select
+            value={actionTypeFilter}
+            onChange={(e) => {
+              setActionTypeFilter(e.target.value as AuditActionType | "all");
+              setPage(0);
+            }}
+            aria-label="Filter by action type"
+            className="w-full appearance-none rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 pr-9 text-sm text-white outline-none transition-colors duration-300 focus:border-primary"
+          >
+            <option value="all" className="bg-background-dark">
+              All Action Types
+            </option>
+            {(Object.keys(ACTION_TYPE_LABELS) as AuditActionType[]).map((type) => (
+              <option key={type} value={type} className="bg-background-dark">
+                {ACTION_TYPE_LABELS[type]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+          />
+        </div>
+      </div>
 
       <div className="mt-6 overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
@@ -160,7 +223,9 @@ export function SettingsAudit() {
             {!isLoading && !loadError && logs.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-sm text-white/40">
-                  No audit activity recorded yet.
+                  {search || actionTypeFilter !== "all"
+                    ? "No audit entries match the current filters."
+                    : "No audit activity recorded yet."}
                 </td>
               </tr>
             )}

@@ -261,7 +261,7 @@ export function GalleryManager() {
             <div
               key={image.id}
               onMouseLeave={() => setReassigningId((current) => (current === image.id ? null : current))}
-              className="group relative aspect-square w-full max-w-[110px] overflow-hidden rounded-lg border border-slate-800 bg-[#0c1322]"
+              className="group relative aspect-square w-full max-w-[110px] overflow-hidden rounded-lg border border-slate-800 bg-background-dark"
             >
               <img
                 src={image.image_url}
@@ -341,7 +341,7 @@ export function GalleryManager() {
             {archivedImages.map((image) => (
               <div
                 key={image.id}
-                className="group relative aspect-square w-full max-w-[110px] overflow-hidden rounded-lg border border-slate-800 bg-[#0c1322] opacity-60"
+                className="group relative aspect-square w-full max-w-[110px] overflow-hidden rounded-lg border border-slate-800 bg-background-dark opacity-60"
               >
                 <img
                   src={image.image_url}

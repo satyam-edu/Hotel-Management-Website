@@ -13,9 +13,11 @@ interface AuthContextValue {
   session: Session | null;
   user: User | null;
   role: StaffRoleType | null;
+  staffUsername: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,10 +45,41 @@ async function fetchRole(): Promise<StaffRoleType | null> {
   return data;
 }
 
+// staff_roles.username is not part of the JWT, so the sign-in identity
+// (email/role) and the display username are fetched separately — this is
+// the single dynamic source "My Profile" and the admin header read from,
+// replacing any hardcoded identity literal.
+async function fetchUsername(userId: string): Promise<string | null> {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("staff_roles")
+    .select("username")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to fetch staff username:", error.message);
+    return null;
+  }
+
+  return data?.username ?? null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<StaffRoleType | null>(null);
+  const [staffUsername, setStaffUsername] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  async function loadProfile(userId: string) {
+    const [nextRole, nextUsername] = await Promise.all([
+      fetchRole(),
+      fetchUsername(userId),
+    ]);
+    setRole(nextRole);
+    setStaffUsername(nextUsername);
+  }
 
   useEffect(() => {
     if (!supabase) {
@@ -60,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMounted) return;
       setSession(data.session);
       if (data.session) {
-        setRole(await fetchRole());
+        await loadProfile(data.session.user.id);
       }
       setIsLoading(false);
     });
@@ -69,7 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, nextSession) => {
         if (!isMounted) return;
         setSession(nextSession);
-        setRole(nextSession ? await fetchRole() : null);
+        if (nextSession) {
+          await loadProfile(nextSession.user.id);
+        } else {
+          setRole(null);
+          setStaffUsername(null);
+        }
       },
     );
 
@@ -97,15 +135,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }
 
+  // Called after a "My Profile" save so the header/session immediately
+  // reflect a changed username or email rather than waiting for the next
+  // full page load or auth state event.
+  async function refreshProfile() {
+    if (!supabase) return;
+
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    if (data.session) {
+      await loadProfile(data.session.user.id);
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
         session,
         user: session?.user ?? null,
         role,
+        staffUsername,
         isLoading,
         login,
         logout,
+        refreshProfile,
       }}
     >
       {children}

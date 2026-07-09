@@ -18,7 +18,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 type StaffRoleType = "master_admin" | "head_admin" | "sub_admin";
 
 interface StaffAdminRequest {
-  action: "list" | "create" | "revoke";
+  action: "list" | "create" | "revoke" | "update" | "delete";
   username?: string;
   email?: string;
   password?: string;
@@ -57,6 +57,18 @@ function canRevoke(callerRole: StaffRoleType, targetRole: StaffRoleType): boolea
   if (callerRole === "master_admin") return true;
   if (callerRole === "head_admin") return targetRole === "sub_admin";
   return false;
+}
+
+// Editing another account's credentials and hard-deleting it outright are
+// more destructive than create/revoke, so — per spec — both are restricted
+// to master_admin only, regardless of the target's role. A master_admin can
+// still never target another master_admin account this way (the
+// single-Master-Administrator invariant from Section 2.4), and self-service
+// profile changes go through supabase.auth.updateUser() client-side instead
+// of this function, so this never needs to allow "edit yourself".
+function canHardModify(callerRole: StaffRoleType, targetRole: StaffRoleType): boolean {
+  if (targetRole === "master_admin") return false;
+  return callerRole === "master_admin";
 }
 
 async function getCallerRole(
@@ -103,16 +115,31 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
+  // The audit trail must attribute create/revoke to whoever is actually
+  // executing the action, not the account being created or revoked — same
+  // JWT `sub`-claim extraction verify-reservation/index.ts already uses for
+  // its own audit inserts.
+  const jwtPayload = JSON.parse(atob(authHeader.replace("Bearer ", "").split(".")[1]));
+  const callerId = jwtPayload.sub as string;
+
   if (body.action === "list") {
     return handleList(adminClient);
   }
 
   if (body.action === "create") {
-    return handleCreate(adminClient, callerRole, body);
+    return handleCreate(adminClient, callerId, callerRole, body);
   }
 
   if (body.action === "revoke") {
-    return handleRevoke(adminClient, callerRole, body);
+    return handleRevoke(adminClient, callerId, callerRole, body);
+  }
+
+  if (body.action === "update") {
+    return handleUpdate(adminClient, callerId, callerRole, body);
+  }
+
+  if (body.action === "delete") {
+    return handleDelete(adminClient, callerId, callerRole, body);
   }
 
   return errorResponse("bad_request", "Unknown action.", 400);
@@ -148,6 +175,7 @@ async function handleList(adminClient: SupabaseClient): Promise<Response> {
 
 async function handleCreate(
   adminClient: SupabaseClient,
+  callerId: string,
   callerRole: StaffRoleType,
   body: StaffAdminRequest,
 ): Promise<Response> {
@@ -210,9 +238,14 @@ async function handleCreate(
   }
 
   await adminClient.from("audit_logs").insert({
-    admin_id: created.user.id,
+    admin_id: callerId,
     action_type: "create_staff",
     description: `Created ${role} account "${username}".`,
+    // actor_role's column default (current_staff_role()) resolves to null
+    // under the service-role client, so it's set explicitly here — same
+    // pattern as verify-reservation/index.ts's audit inserts.
+    actor_role: callerRole,
+    new_value: { id: created.user.id, username, role },
   });
 
   return jsonResponse({ data: { id: created.user.id, username, email, role }, error: null });
@@ -220,6 +253,7 @@ async function handleCreate(
 
 async function handleRevoke(
   adminClient: SupabaseClient,
+  callerId: string,
   callerRole: StaffRoleType,
   body: StaffAdminRequest,
 ): Promise<Response> {
@@ -265,9 +299,170 @@ async function handleRevoke(
   }
 
   await adminClient.from("audit_logs").insert({
-    admin_id: id,
+    admin_id: callerId,
     action_type: "revoke_staff",
     description: `Revoked access for "${target.username}".`,
+    actor_role: callerRole,
+    old_value: { id: target.id, username: target.username, role: target.role },
+  });
+
+  return jsonResponse({ data: { id }, error: null });
+}
+
+async function handleUpdate(
+  adminClient: SupabaseClient,
+  callerId: string,
+  callerRole: StaffRoleType,
+  body: StaffAdminRequest,
+): Promise<Response> {
+  const { id, username, email, password } = body;
+  if (!id) {
+    return errorResponse("bad_request", "id is required.", 400);
+  }
+  if (!username && !email && !password) {
+    return errorResponse(
+      "bad_request",
+      "At least one of username, email, or password must be provided.",
+      400,
+    );
+  }
+  if (password && password.length < 6) {
+    return errorResponse("bad_request", "Password must be at least 6 characters.", 400);
+  }
+
+  const { data: target, error: targetError } = await adminClient
+    .from("staff_roles")
+    .select("id, username, role")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (targetError || !target) {
+    return errorResponse("not_found", "Staff account not found.", 404);
+  }
+
+  // A "My Profile" self-edit is always permitted for the caller's own
+  // account (Section 5.4-adjacent: every role, including master_admin,
+  // manages their own credentials this way) — canHardModify only gates
+  // editing *someone else's* account, and specifically blocks any caller
+  // from targeting a master_admin account other than their own.
+  const isSelfEdit = id === callerId;
+  if (!isSelfEdit && !canHardModify(callerRole, target.role as StaffRoleType)) {
+    return errorResponse(
+      "forbidden",
+      "You do not have permission to edit this account.",
+      403,
+    );
+  }
+
+  if (username && username !== target.username) {
+    const { data: existingUsername } = await adminClient
+      .from("staff_roles")
+      .select("id")
+      .eq("username", username)
+      .neq("id", id)
+      .maybeSingle();
+
+    if (existingUsername) {
+      return errorResponse("duplicate_username", "That username is already in use.", 409);
+    }
+  }
+
+  if (email || password) {
+    const authUpdate: { email?: string; password?: string } = {};
+    if (email) authUpdate.email = email;
+    if (password) authUpdate.password = password;
+
+    const { error: authError } = await adminClient.auth.admin.updateUserById(id, authUpdate);
+    if (authError) {
+      return errorResponse("auth_error", authError.message, 500);
+    }
+  }
+
+  if (username && username !== target.username) {
+    const { error: usernameError } = await adminClient
+      .from("staff_roles")
+      .update({ username })
+      .eq("id", id);
+
+    if (usernameError) {
+      return errorResponse("db_error", usernameError.message, 500);
+    }
+  }
+
+  const changedFields = [
+    username && username !== target.username ? "username" : null,
+    email ? "email" : null,
+    password ? "password" : null,
+  ].filter(Boolean);
+
+  await adminClient.from("audit_logs").insert({
+    admin_id: callerId,
+    action_type: "update_staff_profile",
+    description: `Updated ${changedFields.join(", ")} for "${target.username}".`,
+    actor_role: callerRole,
+    old_value: { id: target.id, username: target.username },
+    new_value: { id: target.id, username: username ?? target.username },
+  });
+
+  return jsonResponse({ data: { id }, error: null });
+}
+
+async function handleDelete(
+  adminClient: SupabaseClient,
+  callerId: string,
+  callerRole: StaffRoleType,
+  body: StaffAdminRequest,
+): Promise<Response> {
+  const { id } = body;
+  if (!id) {
+    return errorResponse("bad_request", "id is required.", 400);
+  }
+
+  const { data: target, error: targetError } = await adminClient
+    .from("staff_roles")
+    .select("id, username, role")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (targetError || !target) {
+    return errorResponse("not_found", "Staff account not found.", 404);
+  }
+  if (!canHardModify(callerRole, target.role as StaffRoleType)) {
+    return errorResponse(
+      "forbidden",
+      "You do not have permission to delete this account.",
+      403,
+    );
+  }
+
+  // The audit_logs insert below reads target.username, so the staff_roles
+  // row is deleted only after that read — deleting auth.users first would
+  // cascade-delete staff_roles automatically (0001_init_schema.sql:19), but
+  // deleting it explicitly here keeps the two steps in a predictable,
+  // logged order rather than relying on an implicit cascade.
+  const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(id);
+  if (deleteAuthError) {
+    return errorResponse("auth_error", deleteAuthError.message, 500);
+  }
+
+  const { error: deleteRoleError } = await adminClient
+    .from("staff_roles")
+    .delete()
+    .eq("id", id);
+
+  if (deleteRoleError) {
+    console.error(
+      `[staff-admin] auth user ${id} was deleted, but the staff_roles row could not be removed (likely already cascaded):`,
+      deleteRoleError.message,
+    );
+  }
+
+  await adminClient.from("audit_logs").insert({
+    admin_id: callerId,
+    action_type: "delete_staff",
+    description: `Permanently deleted ${target.role} account "${target.username}".`,
+    actor_role: callerRole,
+    old_value: { id: target.id, username: target.username, role: target.role },
   });
 
   return jsonResponse({ data: { id }, error: null });

@@ -67,13 +67,14 @@ h3,
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
 }
 
-.glass-panel-light {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+/* The sticky header's glass treatment — same shared --glass-* tokens as
+   .glass-panel, but border-bottom only and no radius/shadow, since it spans
+   the full viewport width. */
+.glass-header {
+  background-color: rgba(255, 255, 255, var(--glass-bg-alpha));
+  border-bottom: 1px solid rgba(255, 255, 255, var(--glass-border-alpha));
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
 }
 
 .sync-loading {

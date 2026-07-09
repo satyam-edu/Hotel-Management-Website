@@ -58,6 +58,12 @@ export async function logConfigDiff<T extends Record<string, unknown>>(
       description = `${verb} ${spec.label} from ${formatValue(spec.kind, oldValue)} to ${formatValue(spec.kind, newValue)}.`;
     }
 
-    await logAction(adminId, actionType, description);
+    // The description keeps text-kind values out of the prose trail, but the
+    // structured columns store them in full — exact before/after content is
+    // precisely what a dispute review needs (Section 4.13).
+    await logAction(adminId, actionType, description, {
+      oldValue: { [String(key)]: oldValue },
+      newValue: { [String(key)]: newValue },
+    });
   }
 }

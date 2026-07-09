@@ -5,9 +5,6 @@ import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import logo from "../../assets/logo.png";
 
-const BOOTSTRAP_EMAIL = "admin@test.com";
-const BOOTSTRAP_PASSWORD = "KamalaAdmin2026!";
-
 const inputClasses =
   "w-full rounded-sm border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary";
 
@@ -28,6 +25,8 @@ export function AdminLogin() {
   const [justSignedIn, setJustSignedIn] = useState(false);
   const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [bootstrapEmail, setBootstrapEmail] = useState("");
+  const [bootstrapPassword, setBootstrapPassword] = useState("");
 
   const redirectTo =
     (location.state as { from?: string } | null)?.from ?? "/admin/dashboard";
@@ -68,20 +67,24 @@ export function AdminLogin() {
       setBootstrapMessage("Authentication service is not configured.");
       return;
     }
+    if (!bootstrapEmail || !bootstrapPassword) {
+      setBootstrapMessage("Enter an email and password to create the bootstrap account.");
+      return;
+    }
 
     setIsBootstrapping(true);
     setBootstrapMessage(null);
 
     const { error: signUpError } = await supabase.auth.signUp({
-      email: BOOTSTRAP_EMAIL,
-      password: BOOTSTRAP_PASSWORD,
+      email: bootstrapEmail,
+      password: bootstrapPassword,
     });
 
     setIsBootstrapping(false);
     setBootstrapMessage(
       signUpError
         ? `Sign-up failed: ${signUpError.message}`
-        : `Auth user created for ${BOOTSTRAP_EMAIL}. Now assign a role to this user in the Supabase SQL editor (staff_roles table).`,
+        : `Auth user created for ${bootstrapEmail}. Now assign a role to this user in the Supabase SQL editor (staff_roles table).`,
     );
   }
 
@@ -182,9 +185,27 @@ export function AdminLogin() {
               Dev Only — Bootstrap
             </p>
             <p className="mt-1.5 text-xs text-white/50">
-              Creates the auth user {BOOTSTRAP_EMAIL}. Role must still be
-              assigned manually in the Supabase SQL editor.
+              Creates a new auth user for local setup. Role must still be
+              assigned manually in the Supabase SQL editor (staff_roles
+              table) — this never assigns a role itself.
             </p>
+            <div className="mt-3 space-y-2">
+              <input
+                type="email"
+                value={bootstrapEmail}
+                onChange={(e) => setBootstrapEmail(e.target.value)}
+                placeholder="Bootstrap email"
+                className="w-full rounded-sm border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary"
+              />
+              <input
+                type="password"
+                value={bootstrapPassword}
+                onChange={(e) => setBootstrapPassword(e.target.value)}
+                placeholder="Bootstrap password"
+                minLength={6}
+                className="w-full rounded-sm border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none transition-colors duration-300 focus:border-primary"
+              />
+            </div>
             <button
               type="button"
               onClick={handleBootstrapSignUp}

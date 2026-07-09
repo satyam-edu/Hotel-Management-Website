@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ChevronDown, Mail, ShieldAlert, Trash2, User } from "lucide-react";
+import { ChevronDown, Mail, Pencil, ShieldAlert, Trash2, User } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import {
   createStaff,
+  deleteStaff,
   listStaff,
   revokeStaff,
   type StaffAccountWithEmail,
 } from "../../../lib/staffAdmin";
+import { EditStaffModal } from "./EditStaffModal";
 import type { StaffRoleType } from "../../../types/database";
 
 const ROLE_BADGE_STYLES: Record<StaffRoleType, string> = {
@@ -67,6 +69,11 @@ export function StaffManagementPanel() {
   );
 
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<StaffAccountWithEmail | null>(
+    null,
+  );
+  const isMasterAdmin = role === "master_admin";
 
   async function reload() {
     setIsLoading(true);
@@ -129,6 +136,25 @@ export function StaffManagementPanel() {
       await reload();
     }
     setRevokingId(null);
+  }
+
+  async function handleDelete(target: StaffAccountWithEmail) {
+    if (
+      !window.confirm(
+        `Permanently delete "${target.username}"? This removes their account entirely and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(target.id);
+    const result = await deleteStaff(target.id);
+    if (!result.success) {
+      window.alert(result.errorMessage ?? "Could not delete this account.");
+    } else {
+      await reload();
+    }
+    setDeletingId(null);
   }
 
   return (
@@ -256,6 +282,10 @@ export function StaffManagementPanel() {
             {staff.map((account) => {
               const isDeactivated = Boolean(account.deactivated_at);
               const canRevokeThis = role ? canActOn(role, account.role) : false;
+              // Edit/Delete are strictly master_admin-only per Section 2.4,
+              // and even the Master Administrator can never target another
+              // master_admin account this way (there is only ever one).
+              const canHardModifyThis = isMasterAdmin && account.role !== "master_admin";
 
               return (
                 <li
@@ -283,13 +313,38 @@ export function StaffManagementPanel() {
                       {ROLE_LABELS[account.role]}
                     </span>
 
+                    {canHardModifyThis && (
+                      <button
+                        type="button"
+                        aria-label={`Edit profile for ${account.username}`}
+                        onClick={() => setEditingAccount(account)}
+                        className="rounded-sm p-2 text-white/40 transition-colors duration-300 hover:bg-white/10 hover:text-white"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+
                     {!isDeactivated && canRevokeThis && (
                       <button
                         type="button"
                         aria-label={`Revoke access for ${account.username}`}
                         disabled={revokingId === account.id}
                         onClick={() => handleRevoke(account)}
+                        className="rounded-sm p-2 text-white/40 transition-colors duration-300 hover:bg-amber-400/10 hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Revoke access (soft, sign out immediately)"
+                      >
+                        <ShieldAlert size={16} />
+                      </button>
+                    )}
+
+                    {canHardModifyThis && (
+                      <button
+                        type="button"
+                        aria-label={`Permanently delete account for ${account.username}`}
+                        disabled={deletingId === account.id}
+                        onClick={() => handleDelete(account)}
                         className="rounded-sm p-2 text-white/40 transition-colors duration-300 hover:bg-red-400/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Permanently delete account"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -307,6 +362,17 @@ export function StaffManagementPanel() {
           </ul>
         )}
       </div>
+
+      {editingAccount && (
+        <EditStaffModal
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+          onSaved={() => {
+            setEditingAccount(null);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }

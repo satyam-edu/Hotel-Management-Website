@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { PaymentStatus, Reservation } from "../types/database";
+import type { ChildDetail, PaymentStatus, Reservation } from "../types/database";
 import type { BillingBreakdown } from "./billing";
 
 interface VerificationError {
@@ -56,6 +56,7 @@ export interface CreateReservationPayload {
   check_out_date: string;
   adults: number;
   children: number;
+  child_details: ChildDetail[];
   guest_name: string;
   guest_phone: string;
   discount_amount: number;

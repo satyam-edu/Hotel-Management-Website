@@ -92,3 +92,34 @@ export async function revokeStaff(
 
   return { success: true, errorMessage: null };
 }
+
+export interface UpdateStaffPayload {
+  id: string;
+  username?: string;
+  email?: string;
+  password?: string;
+}
+
+export async function updateStaff(
+  payload: UpdateStaffPayload,
+): Promise<{ success: boolean; errorCode: string | null; errorMessage: string | null }> {
+  const result = await invokeStaffAdmin<{ id: string }>({ action: "update", ...payload });
+
+  if (result.error) {
+    return { success: false, errorCode: result.error.code, errorMessage: result.error.message };
+  }
+
+  return { success: true, errorCode: null, errorMessage: null };
+}
+
+export async function deleteStaff(
+  id: string,
+): Promise<{ success: boolean; errorMessage: string | null }> {
+  const result = await invokeStaffAdmin<{ id: string }>({ action: "delete", id });
+
+  if (result.error) {
+    return { success: false, errorMessage: result.error.message };
+  }
+
+  return { success: true, errorMessage: null };
+}

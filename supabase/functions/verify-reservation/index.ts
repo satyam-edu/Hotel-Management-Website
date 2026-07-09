@@ -1,4 +1,4 @@
-// Hotel Kamala Inn Grand — Server-Side Reservation Billing Verification
+// Hotel Kamala Inn Grand — Server-Side Reservation Verification
 //
 // Blueprint Section 2.9: billing math (nights, taxable amount, tax, total)
 // must never be trusted from the browser. Previously WalkInBookingModal and
@@ -14,6 +14,19 @@
 // values — whatever the client sent for total_amount/tax_amount is discarded,
 // never trusted, and logged if it disagreed.
 //
+// It also re-verifies the Section 1.8 room-packing safeguarding rules on
+// "create" (minimum booking age, unaccompanied-minor gender separation)
+// against the child_details the caller submits. These rules used to be
+// computed once in the guest's browser (src/lib/roomsCalculator.ts) and
+// never re-checked, so a bypassed client could submit a booking for a child
+// below the minimum age or one requiring gender-separated unaccompanied
+// rooms undetected. calculatePacking() below is a deliberate line-for-line
+// port of roomsCalculator.ts — kept in sync the same way computeBilling()
+// is kept in sync with src/lib/billing.ts. "update" never re-runs this
+// check, since EditLedgerModal never changes party composition (only
+// billing/room/notes) — the row's existing child_details is carried
+// forward unchanged.
+//
 // Mirrors supabase/functions/staff-admin/index.ts's structural conventions:
 // same CORS headers, same {data,error} envelope, same "derive caller role
 // from their own JWT via current_staff_role(), never trust a client-asserted
@@ -23,6 +36,12 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 
 type StaffRoleType = "master_admin" | "head_admin" | "sub_admin";
 type PaymentStatus = "unpaid" | "partial" | "paid";
+type ChildGender = "male" | "female";
+
+interface ChildDetail {
+  age: number;
+  gender: ChildGender;
+}
 
 interface VerifyReservationRequest {
   action: "create" | "update";
@@ -33,6 +52,7 @@ interface VerifyReservationRequest {
   check_out_date: string;
   adults?: number;
   children?: number;
+  child_details?: ChildDetail[];
   discount_amount?: number;
   amount_received?: number;
   payment_status_override?: PaymentStatus; // "paid"/"unpaid" force full/zero payment
@@ -143,11 +163,11 @@ Deno.serve(async (req) => {
   const callerId = jwtPayload.sub as string;
 
   if (body.action === "create") {
-    return handleCreate(adminClient, callerId, body);
+    return handleCreate(adminClient, callerId, callerRole, body);
   }
 
   if (body.action === "update") {
-    return handleUpdate(adminClient, callerId, body);
+    return handleUpdate(adminClient, callerId, callerRole, body);
   }
 
   return errorResponse("bad_request", "Unknown action.", 400);
@@ -188,6 +208,110 @@ async function loadTaxRate(
   if (!data) return { taxRatePercent: null, error: "System configuration is not seeded." };
 
   return { taxRatePercent: data.tax_rate as number, error: null };
+}
+
+interface PackingRules {
+  minBookingAge: number;
+  maxAdultsPerRoom: number;
+  maxChildrenPerRoom: number;
+}
+
+async function loadPackingRules(
+  adminClient: SupabaseClient,
+): Promise<{ rules: PackingRules | null; error: string | null }> {
+  const { data, error } = await adminClient
+    .from("system_configurations")
+    .select("min_booking_age, max_adults_per_room, max_children_per_room")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) return { rules: null, error: error.message };
+  if (!data) return { rules: null, error: "System configuration is not seeded." };
+
+  return {
+    rules: {
+      minBookingAge: data.min_booking_age as number,
+      maxAdultsPerRoom: data.max_adults_per_room as number,
+      maxChildrenPerRoom: data.max_children_per_room as number,
+    },
+    error: null,
+  };
+}
+
+const TEEN_MIN_AGE = 12;
+const TEEN_MAX_AGE = 18;
+
+function isTeen(child: ChildDetail): boolean {
+  return child.age >= TEEN_MIN_AGE && child.age <= TEEN_MAX_AGE;
+}
+
+interface PackingResult {
+  roomsRequired: number;
+  unaccompaniedMinors: ChildDetail[];
+  requiresGenderSeparation: boolean;
+  belowMinimumAge: ChildDetail[];
+}
+
+// Deliberate line-for-line port of src/lib/roomsCalculator.ts's
+// calculateRoomsRequired — see this file's header comment for why a copy
+// exists here rather than a shared import (Deno edge functions can't import
+// from src/). Keep both in sync on any change to Blueprint Section 1.8's
+// packing sequence: adult baseline -> teens fill spare capacity first ->
+// young children fill remaining spare capacity -> leftover teens become
+// gender-tracked unaccompanied minors -> below-minimum-age is a separate,
+// always-reported hard stop.
+function calculatePacking(
+  adults: number,
+  children: ChildDetail[],
+  rules: PackingRules,
+): PackingResult {
+  const belowMinimumAge = children.filter((child) => child.age < rules.minBookingAge);
+
+  const safeAdults = Math.max(adults, 0);
+  const adultRooms = safeAdults > 0 ? Math.ceil(safeAdults / rules.maxAdultsPerRoom) : 0;
+
+  const spareCapacity = new Array(adultRooms).fill(rules.maxChildrenPerRoom);
+
+  function fill(count: number): number {
+    let remaining = count;
+    for (let i = 0; i < spareCapacity.length && remaining > 0; i++) {
+      const used = Math.min(spareCapacity[i], remaining);
+      spareCapacity[i] -= used;
+      remaining -= used;
+    }
+    return remaining;
+  }
+
+  const teens = children.filter(isTeen);
+  const youngChildren = children.filter((child) => !isTeen(child));
+
+  const teensLeftOver = fill(teens.length);
+  const unaccompaniedTeenCount = teensLeftOver;
+  const unaccompaniedMinors = teens.slice(teens.length - unaccompaniedTeenCount);
+
+  const youngChildrenOverflow = fill(youngChildren.length);
+
+  const extraRoomsForYoungOverflow =
+    youngChildrenOverflow > 0 ? Math.ceil(youngChildrenOverflow / rules.maxChildrenPerRoom) : 0;
+
+  const genders = new Set(unaccompaniedMinors.map((child) => child.gender));
+  const requiresGenderSeparation = genders.size > 1;
+
+  const roomsForUnaccompanied = requiresGenderSeparation
+    ? unaccompaniedMinors.length
+    : unaccompaniedMinors.length > 0
+      ? Math.ceil(unaccompaniedMinors.length / rules.maxChildrenPerRoom)
+      : 0;
+
+  const roomsRequired =
+    adultRooms + extraRoomsForYoungOverflow + roomsForUnaccompanied || (children.length > 0 ? 1 : 0);
+
+  return {
+    roomsRequired: Math.max(roomsRequired, safeAdults > 0 || children.length > 0 ? 1 : 0),
+    unaccompaniedMinors,
+    requiresGenderSeparation,
+    belowMinimumAge,
+  };
 }
 
 function reconcilePaymentStatus(
@@ -236,6 +360,7 @@ function logVerification(
 async function handleCreate(
   adminClient: SupabaseClient,
   callerId: string,
+  callerRole: StaffRoleType,
   body: VerifyReservationRequest,
 ): Promise<Response> {
   const { room_number, check_in_date, check_out_date } = body;
@@ -261,6 +386,35 @@ async function handleCreate(
   const { taxRatePercent, error: taxError } = await loadTaxRate(adminClient);
   if (taxError || taxRatePercent === null) {
     return errorResponse("db_error", taxError ?? "Could not resolve tax rate.", 500);
+  }
+
+  // Re-verify the Section 1.8 safeguarding rules server-side — the guest's
+  // browser already blocks these same two cases (see BookingFormSection.tsx),
+  // but that check must never be the only line of defense.
+  const childDetails = body.child_details ?? [];
+  if (childDetails.length > 0) {
+    const { rules: packingRules, error: rulesError } = await loadPackingRules(adminClient);
+    if (rulesError || packingRules === null) {
+      return errorResponse("db_error", rulesError ?? "Could not resolve booking rules.", 500);
+    }
+
+    const packing = calculatePacking(body.adults ?? 1, childDetails, packingRules);
+
+    if (packing.belowMinimumAge.length > 0) {
+      return errorResponse(
+        "policy_violation",
+        `This booking includes a child below the minimum booking age of ${packingRules.minBookingAge}. Please arrange this stay directly with the front desk.`,
+        400,
+      );
+    }
+
+    if (packing.requiresGenderSeparation) {
+      return errorResponse(
+        "policy_violation",
+        "This booking requires gender-separated rooms for unaccompanied minors. Please arrange this stay directly with the front desk.",
+        400,
+      );
+    }
   }
 
   // Re-verify availability server-side too — a client-side check moments
@@ -308,6 +462,7 @@ async function handleCreate(
       check_out_date,
       adults: body.adults ?? 1,
       children: body.children ?? 0,
+      child_details: childDetails,
       total_amount: billing.total,
       tax_amount: billing.taxAmount,
       discount_amount: discountAmount,
@@ -327,6 +482,17 @@ async function handleCreate(
     admin_id: callerId,
     action_type: "create_booking",
     description: `Booked ${body.guest_name} into Room ${room_number} (server-verified total ₹${billing.total.toFixed(0)}, ${nights} night${nights === 1 ? "" : "s"}).`,
+    // The actor_role column default (current_staff_role()) resolves to null
+    // under the service role, so the caller's verified role is set explicitly.
+    actor_role: callerRole,
+    new_value: {
+      room_number,
+      check_in_date,
+      check_out_date,
+      total_amount: billing.total,
+      tax_amount: billing.taxAmount,
+      payment_status: reconciledStatus,
+    },
   });
 
   if (body.from_enquiry_id) {
@@ -356,6 +522,7 @@ async function handleCreate(
 async function handleUpdate(
   adminClient: SupabaseClient,
   callerId: string,
+  callerRole: StaffRoleType,
   body: VerifyReservationRequest,
 ): Promise<Response> {
   const { reservation_id } = body;
@@ -480,6 +647,21 @@ async function handleUpdate(
     admin_id: callerId,
     action_type: "edit_ledger",
     description: `Edited booking for ${existing.guest_name ?? "guest"} (Room ${targetRoomNumber}): server-verified total ₹${billing.total.toFixed(0)}, payment ${reconciledStatus}.${reassignmentNote}`,
+    actor_role: callerRole,
+    old_value: {
+      room_number: currentRoomNumber,
+      discount_amount: existing.discount_amount,
+      total_amount: existing.total_amount,
+      amount_paid: existing.amount_paid,
+      payment_status: existing.payment_status,
+    },
+    new_value: {
+      room_number: targetRoomNumber,
+      discount_amount: discountAmount,
+      total_amount: billing.total,
+      amount_paid: amountPaid,
+      payment_status: reconciledStatus,
+    },
   });
 
   return jsonResponse({

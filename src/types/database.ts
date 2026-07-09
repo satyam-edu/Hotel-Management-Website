@@ -1,5 +1,12 @@
 export type StaffRoleType = "master_admin" | "head_admin" | "sub_admin";
 
+export type ChildGender = "male" | "female";
+
+export type ChildDetail = {
+  age: number;
+  gender: ChildGender;
+};
+
 export type EnquiryStatus = "pending" | "confirmed" | "rejected";
 
 export type PaymentStatus = "unpaid" | "partial" | "paid";
@@ -63,6 +70,7 @@ export type Enquiry = {
   check_out_date: string;
   adults: number;
   children: number;
+  child_details: ChildDetail[];
   room_type_id: string | null;
   status: EnquiryStatus;
   created_at: string;
@@ -79,6 +87,7 @@ export type Reservation = {
   check_out_date: string;
   adults: number;
   children: number;
+  child_details: ChildDetail[];
   total_amount: number;
   tax_amount: number;
   discount_amount: number;
@@ -119,13 +128,22 @@ export type AuditActionType =
   | "archive_gallery_image"
   | "restore_gallery_image"
   | "delete_gallery_image"
-  | "update_gallery_image_folder";
+  | "update_gallery_image_folder"
+  | "restore_demo_data"
+  | "wipe_reservations"
+  | "hard_delete_booking"
+  | "update_staff_profile"
+  | "delete_staff"
+  | "system_purge";
 
 export type AuditLog = {
   id: string;
-  admin_id: string;
+  admin_id: string | null;
   action_type: AuditActionType;
   description: string;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  actor_role: StaffRoleType | null;
   created_at: string;
 };
 
@@ -202,9 +220,10 @@ export type Database = {
       >;
       enquiries: TableDefinition<
         Enquiry,
-        Omit<Enquiry, "id" | "status" | "created_at"> & {
+        Omit<Enquiry, "id" | "status" | "created_at" | "child_details"> & {
           id?: string;
           status?: EnquiryStatus;
+          child_details?: ChildDetail[];
         },
         Partial<Omit<Enquiry, "id" | "created_at">>,
         [
@@ -226,6 +245,7 @@ export type Database = {
           | "assigned_room_id"
           | "adults"
           | "children"
+          | "child_details"
           | "tax_amount"
           | "discount_amount"
           | "amount_paid"
@@ -241,6 +261,7 @@ export type Database = {
           assigned_room_id?: string | null;
           adults?: number;
           children?: number;
+          child_details?: ChildDetail[];
           tax_amount?: number;
           discount_amount?: number;
           amount_paid?: number;
@@ -253,7 +274,12 @@ export type Database = {
       >;
       audit_logs: TableDefinition<
         AuditLog,
-        Omit<AuditLog, "id" | "created_at"> & { id?: string },
+        Omit<AuditLog, "id" | "created_at" | "old_value" | "new_value" | "actor_role"> & {
+          id?: string;
+          old_value?: Record<string, unknown> | null;
+          new_value?: Record<string, unknown> | null;
+          actor_role?: StaffRoleType | null;
+        },
         Record<string, never>,
         [
           {
@@ -291,6 +317,22 @@ export type Database = {
       current_staff_role: {
         Args: Record<string, never>;
         Returns: StaffRoleType;
+      };
+      restore_demo_reservations: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      wipe_reservations_for_testing: {
+        Args: { confirmation: string };
+        Returns: number;
+      };
+      hard_delete_reservation: {
+        Args: { target_reservation_id: string };
+        Returns: undefined;
+      };
+      purge_audit_logs: {
+        Args: { months_old: number; typed_confirmation: string };
+        Returns: undefined;
       };
     };
   };

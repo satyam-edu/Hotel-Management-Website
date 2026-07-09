@@ -16,7 +16,7 @@ import { checkRoomAvailability, loadOccupiedRoomNumbers } from "../../lib/rooms"
 import { createVerifiedReservation } from "../../lib/reservationVerification";
 import type { PhysicalRoomWithCategory } from "../../lib/rooms";
 import type { PendingEnquiry } from "../../lib/enquiries";
-import type { PaymentStatus } from "../../types/database";
+import type { ChildDetail, PaymentStatus } from "../../types/database";
 
 interface WalkInBookingModalProps {
   rooms: PhysicalRoomWithCategory[];
@@ -35,6 +35,7 @@ interface FormState {
   checkOut: string;
   adults: number;
   children: number;
+  childDetails: ChildDetail[];
   discountAmount: string;
   paymentStatus: PaymentStatus;
   amountReceived: string;
@@ -65,6 +66,7 @@ export function WalkInBookingModal({
     checkOut: fromEnquiry?.check_out_date ?? "",
     adults: fromEnquiry?.adults ?? 2,
     children: fromEnquiry?.children ?? 0,
+    childDetails: fromEnquiry?.child_details ?? ([] as ChildDetail[]),
     discountAmount: "0",
     paymentStatus: "unpaid",
     amountReceived: "0",
@@ -255,6 +257,7 @@ export function WalkInBookingModal({
       check_out_date: form.checkOut,
       adults: form.adults,
       children: form.children,
+      child_details: form.childDetails,
       guest_name: form.guestName,
       guest_phone: form.phone,
       discount_amount: parsedDiscount,
@@ -270,6 +273,11 @@ export function WalkInBookingModal({
 
     if (result.errorCode === "room_unavailable") {
       setIsRoomUnavailable(true);
+      setSubmitError(result.errorMessage);
+      return;
+    }
+
+    if (result.errorCode === "policy_violation") {
       setSubmitError(result.errorMessage);
       return;
     }
@@ -412,7 +420,25 @@ export function WalkInBookingModal({
                     type="number"
                     min={0}
                     value={form.children}
-                    onChange={(e) => updateField("children", Number(e.target.value))}
+                    onChange={(e) => {
+                      const nextChildren = Number(e.target.value);
+                      // Per-child age/gender only exists when converting an
+                      // enquiry (the guest supplied it on the public form).
+                      // If staff change the headcount away from that original
+                      // value, the pre-filled age/gender no longer describes
+                      // the actual party, so it's discarded rather than left
+                      // stale — verify-reservation then re-verifies using
+                      // aggregate counts only for this booking, same as any
+                      // walk-in with no enquiry behind it.
+                      setForm((prev) => ({
+                        ...prev,
+                        children: nextChildren,
+                        childDetails:
+                          nextChildren === fromEnquiry?.children
+                            ? (fromEnquiry?.child_details ?? [])
+                            : [],
+                      }));
+                    }}
                     className={inputClasses}
                   />
                 </div>

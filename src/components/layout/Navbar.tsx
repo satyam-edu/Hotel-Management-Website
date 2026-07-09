@@ -164,7 +164,7 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed left-0 top-0 z-50 w-full border-b border-white/[0.08] bg-white/[0.04] backdrop-blur-[20px] transition-shadow duration-300 ${
+      className={`glass-header fixed left-0 top-0 z-50 w-full transition-shadow duration-300 ${
         isScrolled ? "shadow-[0_4px_24px_rgba(0,0,0,0.18)]" : ""
       }`}
     >
@@ -200,7 +200,7 @@ export function Navbar() {
           ))}
 
           <div
-            className="pointer-events-none absolute bottom-0 h-[2px] translate-y-[4px] bg-[#c9a94c] transition-all duration-300 ease-in-out"
+            className="pointer-events-none absolute bottom-0 h-[2px] translate-y-[4px] bg-primary transition-all duration-300 ease-in-out"
             style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }}
           />
         </ul>
