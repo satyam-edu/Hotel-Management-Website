@@ -16,12 +16,9 @@ export function HeroSection() {
       className="relative flex h-screen min-h-[640px] w-full items-center justify-center overflow-hidden"
     >
       <motion.div
-        initial={{ opacity: 0, scale: 1.12 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{
-          opacity: { duration: 1, ease: EASE_OUT_EXPO },
-          scale: { duration: 8, ease: "linear" },
-        }}
+        initial={{ scale: 1.12 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 8, ease: "linear" }}
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
       />
