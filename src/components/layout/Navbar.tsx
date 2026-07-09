@@ -164,7 +164,7 @@ export function Navbar() {
 
   return (
     <header
-      className={`glass-header fixed left-0 top-0 z-50 w-full transition-shadow duration-300 ${
+      className={`glass-header transform-gpu translate-z-0 fixed left-0 top-0 z-50 w-full transition-shadow duration-300 ${
         isScrolled ? "shadow-[0_4px_24px_rgba(0,0,0,0.18)]" : ""
       }`}
     >
