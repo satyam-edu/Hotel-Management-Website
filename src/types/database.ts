@@ -82,6 +82,7 @@ export type Reservation = {
   assigned_room_id: string | null;
   guest_name: string | null;
   guest_phone: string | null;
+  guest_gstin: string;
   room_number: string | null;
   check_in_date: string;
   check_out_date: string;
@@ -255,6 +256,7 @@ export type Database = {
           | "status"
           | "is_cancelled"
           | "bill_sequence"
+          | "guest_gstin"
           | "created_at"
           | "updated_at"
         > & {
@@ -271,6 +273,7 @@ export type Database = {
           payment_status?: PaymentStatus;
           status?: ReservationStatus;
           is_cancelled?: boolean;
+          guest_gstin?: string;
         },
         Partial<Omit<Reservation, "id" | "created_at">>
       >;

@@ -92,6 +92,7 @@ export interface UpdateReservationPayload {
   amount_received: number;
   payment_status_override?: PaymentStatus;
   internal_notes: string;
+  guest_gstin?: string;
   client_total_amount: number;
   client_tax_amount: number;
 }

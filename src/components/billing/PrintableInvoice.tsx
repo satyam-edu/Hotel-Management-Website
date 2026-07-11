@@ -16,19 +16,23 @@ const PROPERTY_EMAIL = "thekamalainn@gmail.com";
 const PROPERTY_GSTIN = "09AAZFK7676F1ZD";
 
 // The paper hotel register this invoice mirrors tracks several fields (Reg
-// No, Meal Plan, Company/Nationality/Pax name+age, client GSTIN, per-room
-// "Other Room"/"Other Tariff", and a settlement/receipt ledger) that the
-// Reservation schema does not capture today — it only has guest_name,
-// room_number, dates, adults/children counts, and a single running
-// amount_paid scalar. Rather than block this printable layout on a schema
-// migration, those fields render as blank, editable text inputs the front
-// desk fills in per booking; nothing here is persisted to the database.
+// No, Meal Plan, Company/Nationality/Pax name+age, per-room "Other Room"/
+// "Other Tariff", and a settlement/receipt ledger) that the Reservation
+// schema does not capture today — it only has guest_name, room_number,
+// dates, adults/children counts, and a single running amount_paid scalar.
+// Rather than block this printable layout on a schema migration, those
+// fields render as blank, editable text inputs the front desk fills in per
+// booking; nothing here is persisted to the database.
 //
-// Bill No. is the one exception — it's backed by reservations.bill_sequence
-// (see 0033_reservation_bill_sequence.sql), a real auto-incrementing
-// integer assigned once at insert, formatted as a single uppercase prefix
-// letter + 5-digit zero-padded sequence (D00216) matching the physical
-// register's numbering.
+// Bill No. and client GSTIN are the two exceptions — Bill No. is backed by
+// reservations.bill_sequence (0033_reservation_bill_sequence.sql), a real
+// auto-incrementing integer formatted as a single uppercase prefix letter +
+// 5-digit zero-padded sequence (D00216). GSTIN is backed by
+// reservations.guest_gstin (0034_reservation_guest_gstin.sql), editable in
+// Edit Ledger and persisted so it shows up consistently on every future
+// print of the same booking — the field here still allows a one-off inline
+// edit for this print only, same as the other manual fields, but starts
+// pre-filled from the real column instead of always blank.
 function formatBillNo(billSequence: number): string {
   return `D${String(billSequence).padStart(5, "0")}`;
 }
@@ -146,7 +150,7 @@ function InvoiceDocument({ reservation, config }: InvoiceDocumentProps) {
     depTime: "",
     modeOfPayment: "",
     otherTariff: "",
-    clientGstin: "",
+    clientGstin: reservation.guest_gstin,
     allowance: "0",
   });
 

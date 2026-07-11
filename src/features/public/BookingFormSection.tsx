@@ -10,7 +10,6 @@ import { useSystemContext } from "../../context/SystemContext";
 import type { RoomCategory } from "../../types/database";
 
 const WHATSAPP_NUMBER = "919956050766";
-const GST_RATE = 0.12;
 
 const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
@@ -176,7 +175,7 @@ export function BookingFormSection({ selectedRoomId }: BookingFormSectionProps) 
 
   const nights = countNights(form.checkIn, form.checkOut);
   const subtotal = (selectedRoom?.nightly_rate ?? 0) * nights;
-  const gstAmount = subtotal * GST_RATE;
+  const gstAmount = subtotal * (config.tax_rate / 100);
   const totalEstimate = subtotal + gstAmount;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -618,7 +617,7 @@ Estimated Total: ${formatCurrency(totalEstimate)}`;
                 <dd className="font-medium text-white">{formatCurrency(subtotal)}</dd>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <dt className="text-white/60">GST (12%)</dt>
+                <dt className="text-white/60">GST ({config.tax_rate}%)</dt>
                 <dd className="font-medium text-white">{formatCurrency(gstAmount)}</dd>
               </div>
             </div>

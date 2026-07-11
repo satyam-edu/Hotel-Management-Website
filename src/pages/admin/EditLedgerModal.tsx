@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
-import { countNights, computeBilling, formatCurrency } from "../../lib/billing";
+import {
+  countNights,
+  computeBilling,
+  discountAmountFromPercent,
+  discountPercentFromAmount,
+  formatCurrency,
+} from "../../lib/billing";
 import { loadOccupiedRoomNumbers } from "../../lib/rooms";
 import { updateVerifiedReservation } from "../../lib/reservationVerification";
 import type { PhysicalRoomWithCategory } from "../../lib/rooms";
@@ -34,9 +40,15 @@ export function EditLedgerModal({
       ? (reservation.total_amount - reservation.tax_amount + reservation.discount_amount) /
         nights
       : reservation.total_amount;
+  const subtotal = impliedNightlyRate * nights;
 
   const [discountAmount, setDiscountAmount] = useState(
     String(reservation.discount_amount),
+  );
+  const [discountPercent, setDiscountPercent] = useState(() =>
+    subtotal > 0
+      ? discountPercentFromAmount(subtotal, reservation.discount_amount).toFixed(2)
+      : "0",
   );
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
     reservation.payment_status,
@@ -45,6 +57,7 @@ export function EditLedgerModal({
     String(reservation.amount_paid),
   );
   const [internalNotes, setInternalNotes] = useState(reservation.internal_notes);
+  const [guestGstin, setGuestGstin] = useState(reservation.guest_gstin);
   const [roomNumber, setRoomNumber] = useState(reservation.room_number ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -93,7 +106,6 @@ export function EditLedgerModal({
   );
 
   const parsedDiscount = Number(discountAmount) || 0;
-  const subtotal = impliedNightlyRate * nights;
   const billing = computeBilling(subtotal, parsedDiscount, taxRatePercent);
 
   const amountPaid = Math.min(Math.max(Number(amountReceived) || 0, 0), billing.total);
@@ -105,6 +117,26 @@ export function EditLedgerModal({
       : amountPaid <= 0
         ? "unpaid"
         : "partial";
+
+  // Bi-directional: editing either field recomputes the other from the same
+  // subtotal, so both stay consistent — billing/amountPaid/balanceDue above
+  // already re-derive from parsedDiscount (→ discountAmount) on every
+  // render, so changing either input cascades through subtotal → taxable →
+  // tax → total → balance automatically, no separate recalculation step
+  // needed.
+  function handleDiscountAmountChange(value: string) {
+    setDiscountAmount(value);
+    const amount = Math.min(Math.max(Number(value) || 0, 0), subtotal);
+    setDiscountPercent(
+      subtotal > 0 ? discountPercentFromAmount(subtotal, amount).toFixed(2) : "0",
+    );
+  }
+
+  function handleDiscountPercentChange(value: string) {
+    setDiscountPercent(value);
+    const percent = Math.min(Math.max(Number(value) || 0, 0), 100);
+    setDiscountAmount(discountAmountFromPercent(subtotal, percent).toFixed(2));
+  }
 
   function handleAmountReceivedChange(value: string) {
     setAmountReceived(value);
@@ -140,6 +172,7 @@ export function EditLedgerModal({
       amount_received: amountPaid,
       payment_status_override: paymentStatus,
       internal_notes: internalNotes,
+      guest_gstin: guestGstin,
       client_total_amount: billing.total,
       client_tax_amount: billing.taxAmount,
     });
@@ -215,19 +248,35 @@ export function EditLedgerModal({
             </p>
           </div>
 
-          <div>
-            <label htmlFor="discountAmount" className={labelClasses}>
-              Discount (₹)
-            </label>
-            <input
-              id="discountAmount"
-              type="number"
-              min={0}
-              max={subtotal}
-              value={discountAmount}
-              onChange={(e) => setDiscountAmount(e.target.value)}
-              className={inputClasses}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="discountAmount" className={labelClasses}>
+                Discount (₹)
+              </label>
+              <input
+                id="discountAmount"
+                type="number"
+                min={0}
+                max={subtotal}
+                value={discountAmount}
+                onChange={(e) => handleDiscountAmountChange(e.target.value)}
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label htmlFor="discountPercent" className={labelClasses}>
+                Discount (%)
+              </label>
+              <input
+                id="discountPercent"
+                type="number"
+                min={0}
+                max={100}
+                value={discountPercent}
+                onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                className={inputClasses}
+              />
+            </div>
           </div>
 
           <div>
@@ -276,6 +325,23 @@ export function EditLedgerModal({
                 based on the amount received.
               </p>
             )}
+          </div>
+
+          <div>
+            <label htmlFor="guestGstin" className={labelClasses}>
+              Customer GSTIN
+            </label>
+            <input
+              id="guestGstin"
+              type="text"
+              value={guestGstin}
+              onChange={(e) => setGuestGstin(e.target.value)}
+              placeholder="e.g. 09AABCH8761M1ZZ"
+              className={`${inputClasses} font-mono uppercase`}
+            />
+            <p className="mt-1.5 text-xs text-white/40">
+              Printed on this booking's GST invoice.
+            </p>
           </div>
 
           <div>

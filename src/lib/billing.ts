@@ -25,6 +25,20 @@ export function computeBilling(
   return { taxableAmount, taxAmount, total };
 }
 
+// Discount is stored and submitted as an absolute ₹ amount everywhere
+// downstream (verify-reservation's request/response shape and its own
+// computeBilling only understand discount_amount) — these two helpers exist
+// purely so a UI can offer a percentage input that stays in sync with the
+// ₹ field, without changing what's actually persisted.
+export function discountAmountFromPercent(subtotal: number, percent: number): number {
+  return Math.max(subtotal, 0) * (Math.max(percent, 0) / 100);
+}
+
+export function discountPercentFromAmount(subtotal: number, amount: number): number {
+  if (subtotal <= 0) return 0;
+  return Math.max(amount, 0) / subtotal * 100;
+}
+
 export function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }

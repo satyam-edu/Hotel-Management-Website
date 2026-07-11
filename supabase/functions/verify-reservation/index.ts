@@ -58,6 +58,7 @@ interface VerifyReservationRequest {
   payment_status_override?: PaymentStatus; // "paid"/"unpaid" force full/zero payment
   guest_name?: string;
   guest_phone?: string;
+  guest_gstin?: string;
   internal_notes?: string;
   from_enquiry_id?: string;
   // Client-sent figures, kept only so we can log whether they matched.
@@ -623,6 +624,7 @@ async function handleUpdate(
       payment_status: reconciledStatus,
       amount_paid: amountPaid,
       internal_notes: body.internal_notes ?? existing.internal_notes,
+      guest_gstin: body.guest_gstin ?? existing.guest_gstin,
     })
     .eq("id", reservation_id)
     .select()
